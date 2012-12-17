@@ -58,6 +58,10 @@
 #include <mach/mpm.h>
 #include <mach/msm_bus.h>
 
+// LGE_UPDATE_S by alex.koo@lge.com
+#include <mach/board_lge.h>
+// LGE_UPDATE_E
+
 #include "msm_sdcc.h"
 #include "msm_sdcc_dml.h"
 
@@ -3291,6 +3295,9 @@ static void msmsdcc_print_rpm_info(struct msmsdcc_host *host)
 {
 	struct device *dev = mmc_dev(host->mmc);
 
+	pr_info("%s: PM: sdcc_suspended=%d, pending_resume=%d, sdcc_suspending=%d\n",
+		mmc_hostname(host->mmc), host->sdcc_suspended,
+		host->pending_resume, host->sdcc_suspending);
 	pr_info("%s: RPM: runtime_status=%d, usage_count=%d,"
 		" is_suspended=%d, disable_depth=%d, runtime_error=%d,"
 		" request_pending=%d, request=%d\n",
@@ -5666,6 +5673,16 @@ msmsdcc_probe(struct platform_device *pdev)
 	/* packed write */
 	mmc->caps2 |= plat->packed_write;
 
+//LGE_UPDATE_S by alex.koo@lge.com
+	if(lge_get_board_revno() >= HW_REV_D)
+	{
+	   pr_info("%s : mmc driver enable packed command! HW Rev : %d\n", mmc_hostname(host->mmc), lge_get_board_revno());
+	   mmc->caps2 |= MMC_CAP2_PACKED_WR;
+           mmc->caps2 |= MMC_CAP2_PACKED_WR_CONTROL;
+	}		
+	pr_info("HS200 enable with QCT Patch!\n");
+//LGE_UPDATE_E by alex.koo@lge.com
+
 	mmc->caps2 |= (MMC_CAP2_BOOTPART_NOACC | MMC_CAP2_DETECT_ON_ERR);
 	mmc->caps2 |= MMC_CAP2_SANITIZE;
 
@@ -6261,6 +6278,7 @@ msmsdcc_runtime_resume(struct device *dev)
 
 		wake_unlock(&host->sdio_suspend_wlock);
 	}
+	host->pending_resume = false;
 	pr_debug("%s: %s: end\n", mmc_hostname(mmc), __func__);
 	return 0;
 }
@@ -6333,7 +6351,13 @@ static int msmsdcc_pm_resume(struct device *dev)
 
 	if (mmc->card && mmc_card_sdio(mmc->card))
 		rc = msmsdcc_runtime_resume(dev);
-	else
+	/*
+	 * As runtime PM is enabled before calling the device's platform resume
+	 * callback, we use the pm_runtime_suspended API to know if SDCC is
+	 * really runtime suspended or not and set the pending_resume flag only
+	 * if its not runtime suspended.
+	 */
+	else if (!pm_runtime_suspended(dev))
 		host->pending_resume = true;
 
 	if (host->plat->status_irq) {

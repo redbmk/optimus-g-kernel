@@ -33,7 +33,7 @@ extern int usb_wwan_resume(struct usb_serial *serial);
 
 /* per port private data */
 
-#define N_IN_URB 5
+#define N_IN_URB 16
 #define N_OUT_URB 5
 #define IN_BUFLEN 16384
 #define OUT_BUFLEN 65536

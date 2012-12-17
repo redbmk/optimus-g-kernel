@@ -820,7 +820,7 @@ pipe_rdwr_release(struct inode *inode, struct file *filp)
 	decw = (filp->f_mode & FMODE_WRITE) != 0;
 	return pipe_release(inode, decr, decw);
 }
-
+/* DGMS MC-C05412-4 */
 static int
 pipe_read_open(struct inode *inode, struct file *filp)
 {

@@ -1,6 +1,6 @@
 /* include/linux/lge_touch_core.h
  *
- * Copyright (C) 2011 LGE.
+ * Copyright (C) 2012 LGE.
  *
  * Writer: yehan.ahn@lge.com, 	hyesung.shin@lge.com
  *
@@ -25,6 +25,9 @@
 #define DESCRIPTION_TABLE_START                 0xe9
 #define ANALOG_TABLE_START                      0xe9
 #define BUTTON_TABLE_START                      0xe3
+
+#define PAGE_SELECT_REG					0xFF		/* Button exists Page 02 */
+#define PAGE_MAX_NUM					4			/* number of page register */
 
 struct ts_function_descriptor {
 	u8 	query_base;
@@ -87,4 +90,8 @@ enum {IC7020_GFF, IC7020_G2, IC3203_G2, IC7020_GFF_H_PTN, IC7020_G2_H_PTN};
 
 /* extern function */
 extern int FirmwareUpgrade(struct synaptics_ts_data *ts, const char* fw_path);
+int synaptics_ts_page_data_read(struct i2c_client *client, u8 page, u8 reg, int size, u8 *data);
+int ts_page_data_write(struct i2c_client *client, u8 page, u8 reg, int size, u8 *data);
+int synaptics_ts_page_data_write_byte(struct i2c_client *client, u8 page, u8 reg, u8 data);
+
 #endif

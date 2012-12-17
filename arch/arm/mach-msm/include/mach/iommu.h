@@ -162,3 +162,7 @@ static inline int msm_soc_version_supports_iommu_v1(void)
 	}
 	return 1;
 }
+
+//Start LGE_BSP_CAMERA : iommu_patch - jonghwan.ko@lge.com
+int msm_iommu_dump_pg(struct iommu_domain *domain, unsigned long va);
+//End  LGE_BSP_CAMERA : iommu_patch - jonghwan.ko@lge.com

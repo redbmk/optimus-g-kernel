@@ -37,6 +37,8 @@
 #include <mach/msm_dcvs.h>
 #include <mach/msm_rtb.h>
 #include <linux/ion.h>
+
+#include <mach/board_lge.h>
 #include "clock.h"
 #include "devices.h"
 #include "footswitch.h"
@@ -104,7 +106,7 @@
 
 static struct msm_watchdog_pdata msm_watchdog_pdata = {
 	.pet_time = 10000,
-	.bark_time = 11000,
+	.bark_time = 16000,
 	.has_secure = true,
 	.needs_expired_enable = true,
 	.base = MSM_TMR0_BASE + WDT0_OFFSET,
@@ -155,6 +157,7 @@ struct platform_device apq8064_device_dmov = {
 	},
 };
 
+#if 0
 static struct resource resources_uart_gsbi1[] = {
 	{
 		.start	= APQ8064_GSBI1_UARTDM_IRQ,
@@ -181,6 +184,37 @@ struct platform_device apq8064_device_uart_gsbi1 = {
 	.num_resources	= ARRAY_SIZE(resources_uart_gsbi1),
 	.resource	= resources_uart_gsbi1,
 };
+#endif
+
+#if defined(CONFIG_MACH_LGE) && !defined(CONFIG_MSM_DSPS)
+static struct resource resources_qup_i2c_gsbi2[] = {
+	{
+		.name	= "gsbi_qup_i2c_addr",
+		.start	= MSM_GSBI2_PHYS,
+		.end	= MSM_GSBI2_PHYS + 4 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "qup_phys_addr",
+		.start	= MSM_GSBI2_QUP_PHYS,
+		.end	= MSM_GSBI2_QUP_PHYS + MSM_QUP_SIZE - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "qup_err_intr",
+		.start	= APQ8064_GSBI2_QUP_IRQ,
+		.end	= APQ8064_GSBI2_QUP_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device apq8064_device_qup_i2c_gsbi2 = {
+	.name		= "qup_i2c",
+	.id		= 2,
+	.num_resources	= ARRAY_SIZE(resources_qup_i2c_gsbi2),
+	.resource	= resources_qup_i2c_gsbi2,
+};
+#endif
 
 static struct resource resources_uart_gsbi3[] = {
 	{
@@ -335,6 +369,7 @@ static struct resource resources_qup_i2c_gsbi4[] = {
 		.end	= GSBI4_QUP_IRQ,
 		.flags	= IORESOURCE_IRQ,
 	},
+#if !defined(CONFIG_LGE_IRDA)
 	{
 		.name	= "i2c_clk",
 		.start	= 11,
@@ -347,6 +382,7 @@ static struct resource resources_qup_i2c_gsbi4[] = {
 		.end	= 10,
 		.flags	= IORESOURCE_IO,
 	},
+#endif
 };
 
 struct platform_device apq8064_device_qup_i2c_gsbi4 = {
@@ -356,6 +392,8 @@ struct platform_device apq8064_device_qup_i2c_gsbi4 = {
 	.resource	= resources_qup_i2c_gsbi4,
 };
 
+/* LGE_BROADCAST_MMBI { */
+#if defined(CONFIG_LGE_BROADCAST_TDMB) || defined(CONFIG_LGE_BROADCAST_ONESEG)
 static struct resource resources_qup_spi_gsbi5[] = {
 	{
 		.name   = "spi_base",
@@ -375,6 +413,47 @@ static struct resource resources_qup_spi_gsbi5[] = {
 		.end    = GSBI5_QUP_IRQ,
 		.flags  = IORESOURCE_IRQ,
 	},
+	{
+		.name = "spi_clk",
+		.start = 54,
+		.end = 54,
+		.flags = IORESOURCE_IO,
+	},
+	{
+		.name = "spi_cs",
+		.start = 53,
+		.end = 53,
+		.flags = IORESOURCE_IO,
+	},
+	{
+		.name = "spi_miso",
+		.start = 52,
+		.end = 52,
+		.flags = IORESOURCE_IO,
+	},
+	{
+		.name = "spi_mosi",
+		.start = 51,
+		.end =51,
+		.flags = IORESOURCE_IO,
+	},
+
+	/* For DMA enabled */
+//#if defined(CONFIG_LGE_BROADCAST_ONESEG)
+	{ 
+		.name = "spidm_channels", 
+		.start = 6, 
+		.end = 7, 
+		.flags = IORESOURCE_DMA, 
+	}, 
+	{ 
+		.name = "spidm_crci", 
+		.start = 9, 
+		.end = 10, 
+		.flags = IORESOURCE_DMA, 
+	},
+//#endif /* CONFIG_LGE_BROADCAST_ONESEG */
+
 };
 
 struct platform_device apq8064_device_qup_spi_gsbi5 = {
@@ -383,6 +462,39 @@ struct platform_device apq8064_device_qup_spi_gsbi5 = {
 	.num_resources	= ARRAY_SIZE(resources_qup_spi_gsbi5),
 	.resource	= resources_qup_spi_gsbi5,
 };
+#endif /* CONFIG_LGE_BROADCAST */
+/* LGE_BROADCAST_MMBI } */
+
+#if defined( CONFIG_LGE_FELICA ) || defined(CONFIG_LGE_NFC_SONY_CXD2235AGG)
+static struct resource resources_uart_gsbi6[] = {
+    {
+        .start  = GSBI6_UARTDM_IRQ,
+        .end    = GSBI6_UARTDM_IRQ,
+        .flags  = IORESOURCE_IRQ,
+    },
+    {
+        .start  = MSM_UART6DM_PHYS,
+        .end    = MSM_UART6DM_PHYS + PAGE_SIZE - 1,
+        .name   = "uartdm_resource",
+        .flags  = IORESOURCE_MEM,
+    },
+    {
+        .start  = MSM_GSBI6_PHYS,
+        .end    = MSM_GSBI6_PHYS + PAGE_SIZE - 1,
+        .name   = "gsbi_resource",
+        .flags  = IORESOURCE_MEM,
+    },
+};
+
+struct platform_device apq8064_device_felica_gsbi6 = {
+       .name   = "msm_serial_hsl",
+       .id     = 2,
+       .num_resources  = ARRAY_SIZE(resources_uart_gsbi6),
+       .resource       = resources_uart_gsbi6,
+};
+#endif /* CONFIG_LGE_FELICA */
+
+#if 0
 
 static struct resource resources_qup_i2c_gsbi5[] = {
 	{
@@ -450,6 +562,7 @@ struct platform_device apq8064_device_uart_gsbi7 = {
 	.num_resources	= ARRAY_SIZE(resources_uart_gsbi7),
 	.resource	= resources_uart_gsbi7,
 };
+#endif
 
 struct platform_device apq_pcm = {
 	.name	= "msm-pcm-dsp",
@@ -973,6 +1086,10 @@ static struct resource resources_hsusb_host[] = {
 	},
 };
 
+#define MDM2AP_PBLRDY       46
+#define AP2MDM_WAKEUP       35
+#define MDM2AP_ERRFATAL     19
+
 static struct resource resources_hsic_host[] = {
 	{
 		.start	= 0x12510000,
@@ -994,6 +1111,24 @@ static struct resource resources_hsic_host[] = {
 		.start	= 47,
 		.end	= 47,
 		.name	= "wakeup",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= AP2MDM_WAKEUP,
+		.end	= AP2MDM_WAKEUP,
+		.name	= "AP2MDM_HSICRDY",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= MDM2AP_ERRFATAL,
+		.end	= MDM2AP_ERRFATAL,
+		.name	= "MDM2AP_ERRFATAL",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= MDM2AP_PBLRDY,
+		.end	= MDM2AP_PBLRDY,
+		.name	= "MDM2AP_PBLRDY",
 		.flags	= IORESOURCE_IO,
 	},
 };
@@ -1937,6 +2072,7 @@ static struct fs_driver_data ijpeg_fs_data = {
 	.bus_port0 = MSM_BUS_MASTER_JPEG_ENC,
 };
 
+/*
 static struct fs_driver_data mdp_fs_data = {
 	.clks = (struct fs_clk_data[]){
 		{ .name = "core_clk" },
@@ -1953,6 +2089,7 @@ static struct fs_driver_data mdp_fs_data = {
 	.bus_port0 = MSM_BUS_MASTER_MDP_PORT0,
 	.bus_port1 = MSM_BUS_MASTER_MDP_PORT1,
 };
+*/
 
 static struct fs_driver_data rot_fs_data = {
 	.clks = (struct fs_clk_data[]){
@@ -2006,7 +2143,7 @@ static struct fs_driver_data vcap_fs_data = {
 };
 
 struct platform_device *apq8064_footswitch[] __initdata = {
-	FS_8X60(FS_MDP,    "vdd",       "mdp.0",        &mdp_fs_data),
+//	FS_8X60(FS_MDP,    "vdd",       "mdp.0",        &mdp_fs_data),
 	FS_8X60(FS_ROT,    "vdd",	"msm_rotator.0", &rot_fs_data),
 	FS_8X60(FS_IJPEG,  "vdd",	"msm_gemini.0",	&ijpeg_fs_data),
 	FS_8X60(FS_VFE,    "vdd",	"msm_vfe.0",	&vfe_fs_data),

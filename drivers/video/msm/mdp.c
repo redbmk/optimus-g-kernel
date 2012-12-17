@@ -43,6 +43,9 @@
 #endif
 #include "mipi_dsi.h"
 
+#if defined (CONFIG_LGE_QC_LCDC_LUT)
+#include "lge_qlut.h"
+#endif
 uint32 mdp4_extn_disp;
 
 static struct clk *mdp_clk;
@@ -482,6 +485,17 @@ error:
 DEFINE_MUTEX(mdp_lut_push_sem);
 static int mdp_lut_i;
 
+#ifdef CONFIG_LGE_QC_LCDC_LUT
+extern int g_qlut_change_by_kernel;
+extern uint32 p_lg_qc_lcdc_lut[];
+
+#ifdef CONFIG_LGE_KCAL_QLUT
+extern int g_kcal_r;
+extern int g_kcal_g;
+extern int g_kcal_b;
+#endif /* CONFIG_LGE_KCAL_QLUT */
+#endif /* CONFIG_LGE_QC_LCDC_LUT */
+
 static int mdp_lut_hw_update(struct fb_cmap *cmap)
 {
 	int i;
@@ -493,6 +507,20 @@ static int mdp_lut_hw_update(struct fb_cmap *cmap)
 	c[2] = cmap->red;
 
 	for (i = 0; i < cmap->len; i++) {
+#ifdef CONFIG_LGE_QC_LCDC_LUT
+		if(g_qlut_change_by_kernel) {
+			r = ((p_lg_qc_lcdc_lut[i] & R_MASK) >> R_SHIFT);
+			g = ((p_lg_qc_lcdc_lut[i] & G_MASK) >> G_SHIFT);
+			b = ((p_lg_qc_lcdc_lut[i] & B_MASK) >> B_SHIFT);
+#ifdef CONFIG_LGE_KCAL_QLUT
+			r = scaled_by_kcal(r, g_kcal_r);
+			g = scaled_by_kcal(g, g_kcal_g);
+			b = scaled_by_kcal(b, g_kcal_b);
+			/* printk("   mdp kcal r[%d] =%x g[%d] = %x b[%d] =%x\n"
+			, i, r, i, g, i, b); */
+#endif
+		} else
+#endif
 		if (copy_from_user(&r, cmap->red++, sizeof(r)) ||
 		    copy_from_user(&g, cmap->green++, sizeof(g)) ||
 		    copy_from_user(&b, cmap->blue++, sizeof(b)))
@@ -2567,6 +2595,7 @@ static int mdp_probe(struct platform_device *pdev)
 		mfd->do_histogram = mdp_do_histogram;
 		mfd->start_histogram = mdp_histogram_start;
 		mfd->stop_histogram = mdp_histogram_stop;
+		mfd->wait4idle = mdp4_overlay_dsi_video_wait4idle;
 		if (mfd->panel_info.pdest == DISPLAY_1) {
 			if_no = PRIMARY_INTF_SEL;
 			mfd->dma = &dma2_data;
@@ -2654,6 +2683,7 @@ static int mdp_probe(struct platform_device *pdev)
 		mfd->hw_refresh = TRUE;
 		mfd->cursor_update = mdp_hw_cursor_update;
 		mfd->dma_fnc = mdp4_dtv_overlay;
+		mfd->wait4idle = mdp4_overlay_dtv_wait4idle;
 		mfd->dma = &dma_e_data;
 		mfd->do_histogram = mdp_do_histogram;
 		mfd->start_histogram = mdp_histogram_start;
@@ -2682,6 +2712,7 @@ static int mdp_probe(struct platform_device *pdev)
 #endif
 #ifdef CONFIG_FB_MSM_OVERLAY
 		mfd->dma_fnc = mdp4_lcdc_overlay;
+		mfd->wait4idle = mdp4_overlay_lcdc_wait4idle;
 #else
 		mfd->dma_fnc = mdp_lcdc_update;
 #endif
@@ -2877,10 +2908,12 @@ static void mdp_early_suspend(struct early_suspend *h)
 
 static void mdp_early_resume(struct early_suspend *h)
 {
+	printk("+++mdp_early_resume\n");
 	mdp_footswitch_ctrl(TRUE);
 	mutex_lock(&mdp_suspend_mutex);
 	mdp_suspended = FALSE;
 	mutex_unlock(&mdp_suspend_mutex);
+	printk("---mdp_early_resume\n");
 }
 #endif
 

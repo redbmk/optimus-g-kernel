@@ -322,4 +322,10 @@ config CMA_AREAS
 
 endif
 
+config LGE_PROBE_TIME_PROFILING
+	bool "Enable probe time profiling"
+	default n
+	help
+	  Say Y here if you would like to profile probe time.
+
 endmenu

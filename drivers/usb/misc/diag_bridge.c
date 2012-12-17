@@ -26,6 +26,13 @@
 #include <linux/usb.h>
 #include <linux/debugfs.h>
 #include <mach/diag_bridge.h>
+#ifdef CONFIG_LGE_EMS_CH
+#include <mach/hsic_debug_ch.h>
+#endif
+
+#if defined(CONFIG_LGE_HANDLE_PANIC)//unchol.park
+#include <mach/board_lge.h>
+#endif
 
 #define DRIVER_DESC	"USB host diag bridge driver"
 #define DRIVER_VERSION	"1.0"
@@ -104,6 +111,18 @@ static void diag_bridge_read_cb(struct urb *urb)
 
 	if (urb->status == -EPROTO) {
 		dev_err(&dev->ifc->dev, "%s: proto error\n", __func__);
+
+        /* workaround: MDM diag does not operate after SSR3
+         * caused by QXDM log drop patch
+         */
+#if 1
+        if (cbs && cbs->read_complete_cb)
+            cbs->read_complete_cb(cbs->ctxt,
+                    urb->transfer_buffer,
+                    urb->transfer_buffer_length,
+                    urb->status < 0 ? urb->status : urb->actual_length);
+#endif
+
 		/* save error so that subsequent read/write returns ENODEV */
 		dev->err = urb->status;
 		kref_put(&dev->kref, diag_bridge_delete);
@@ -260,7 +279,12 @@ int diag_bridge_write(char *data, int size)
 	dev->pending_writes++;
 
 	ret = usb_submit_urb(urb, GFP_KERNEL);
+	
 	if (ret) {
+#if defined(CONFIG_LGE_HANDLE_PANIC)//unchol.park
+		if(lge_pm_get_cable_type() == CABLE_130K)
+			printk("[MDM TEST] usb_submit_urb failed. ret = %d\n", ret);
+#endif
 		pr_err_ratelimited("submitting urb failed err:%d", ret);
 		dev->pending_writes--;
 		usb_unanchor_urb(urb);
@@ -394,12 +418,18 @@ diag_bridge_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 	ifc_desc = ifc->cur_altsetting;
 	for (i = 0; i < ifc_desc->desc.bNumEndpoints; i++) {
 		ep_desc = &ifc_desc->endpoint[i].desc;
+#ifdef LG_FW_HSIC_EMS_DEBUG /* secheol.pyo - endpoint logging */
+		printk("[%s]for ++, i= %d, ifc_desc->desc.bNumEndpoints = %d\n", __func__,i, ifc_desc->desc.bNumEndpoints);
+#endif /* secheol.pyo - endpoint logging */
 
 		if (!dev->in_epAddr && usb_endpoint_is_bulk_in(ep_desc))
 			dev->in_epAddr = ep_desc->bEndpointAddress;
 
 		if (!dev->out_epAddr && usb_endpoint_is_bulk_out(ep_desc))
 			dev->out_epAddr = ep_desc->bEndpointAddress;
+#ifdef LG_FW_HSIC_EMS_DEBUG /* secheol.pyo - endpoint logging */
+		printk("[%s]for --, i= %d, dev->in_epAddr = %d, dev->out_epAddr = %d \n", __func__,i, dev->in_epAddr, dev->out_epAddr);
+#endif/* secheol.pyo - endpoint logging */
 	}
 
 	if (!(dev->in_epAddr && dev->out_epAddr)) {

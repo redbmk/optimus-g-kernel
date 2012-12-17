@@ -33,6 +33,8 @@ struct vm_struct {
 	unsigned int		nr_pages;
 	phys_addr_t		phys_addr;
 	void			*caller;
+    // ADD_PID_IN_VMALLOCINFO
+    int pid;
 };
 
 /*

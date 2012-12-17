@@ -1584,6 +1584,40 @@ void input_reset_device(struct input_dev *dev)
 EXPORT_SYMBOL(input_reset_device);
 
 #ifdef CONFIG_PM
+static void input_dev_release_except_pwrkey(struct input_dev *dev)
+{
+	int code;
+
+	if (is_event_supported(EV_KEY, dev->evbit, EV_MAX)) {
+		for (code = 0; code <= KEY_MAX; code++) {
+			if(code == KEY_POWER)
+				printk("suspend --> resume: power_key is not clear for power key long pressed\n");
+			else{
+				if (is_event_supported(code, dev->keybit, KEY_MAX) &&
+			    	__test_and_clear_bit(code, dev->key)) {
+						input_pass_event(dev, EV_KEY, code, 0);
+				}
+			}
+		}
+		input_pass_event(dev, EV_SYN, SYN_REPORT, 1);
+	}
+}
+
+void input_reset_device_except_pwrkey(struct input_dev *dev)
+{
+	mutex_lock(&dev->mutex);
+
+	if (dev->users) {
+		input_dev_toggle(dev, true);
+
+		spin_lock_irq(&dev->event_lock);
+		input_dev_release_except_pwrkey(dev);
+		spin_unlock_irq(&dev->event_lock);
+	}
+
+	mutex_unlock(&dev->mutex);
+}
+EXPORT_SYMBOL(input_reset_device_except_pwrkey);
 static int input_dev_suspend(struct device *dev)
 {
 	struct input_dev *input_dev = to_input_dev(dev);
@@ -1602,8 +1636,8 @@ static int input_dev_resume(struct device *dev)
 {
 	struct input_dev *input_dev = to_input_dev(dev);
 
-	input_reset_device(input_dev);
-
+	//input_reset_device(input_dev);
+	input_reset_device_except_pwrkey(input_dev);
 	return 0;
 }
 

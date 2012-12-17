@@ -26,6 +26,19 @@
 
 #include <ram_console.h>
 
+#ifdef CONFIG_LGE_PM
+#include <linux/mfd/pm8xxx/pm8921.h>
+#include <linux/delay.h>
+#endif
+
+#ifdef CONFIG_LGE_PM
+#include CONFIG_BOARD_HEADER_FILE
+#endif
+
+#ifdef CONFIG_LGE_BOOT_TIME_CHECK
+#include "lge_boot_time_checker.h"
+#endif
+
 /* setting whether uart console is enalbed or disabled */
 static int uart_console_mode = 0;
 
@@ -46,6 +59,53 @@ static int __init lge_uart_mode(char *uart_mode)
 	return 1;
 }
 __setup("uart_console=", lge_uart_mode);
+
+#ifdef CONFIG_LGE_PM_LOW_BATT_CHG
+int chargerlogo_state = 0;
+int lge_set_charger_logo_state(int val)
+{
+	chargerlogo_state = val;
+	printk(KERN_INFO"Chargerlogo state : %d\n", chargerlogo_state);
+	return 0;
+}
+
+int lge_get_charger_logo_state(void)
+{
+	return chargerlogo_state;
+}
+#endif
+
+#ifdef CONFIG_LGE_PM
+/* LGE_CHANGE
+ * Implement cable detection
+ * 2012-01-14, sangduck.kim@lge.com
+ */
+struct chg_cable_info_table {
+	int threshhold;
+	acc_cable_type type;
+	unsigned ta_ma;
+	unsigned usb_ma;
+};
+
+/* This table is only for J1 */
+static struct chg_cable_info_table pm8921_acc_cable_type_data[]={
+	{ADC_NO_INIT_CABLE, NO_INIT_CABLE,  C_NO_INIT_TA_MA,    C_NO_INIT_USB_MA},
+	{ADC_CABLE_MHL_1K,  CABLE_MHL_1K,   C_MHL_1K_TA_MA,     C_MHL_1K_USB_MA},
+	{ADC_CABLE_U_28P7K, CABLE_U_28P7K,  C_U_28P7K_TA_MA,    C_U_28P7K_USB_MA},
+	{ADC_CABLE_28P7K,   CABLE_28P7K,    C_28P7K_TA_MA,      C_28P7K_USB_MA},
+	{ADC_CABLE_56K,     CABLE_56K,      C_56K_TA_MA,        C_56K_USB_MA},
+	{ADC_CABLE_100K,    CABLE_100K,     C_100K_TA_MA,       C_100K_USB_MA},
+	{ADC_CABLE_130K,    CABLE_130K,     C_130K_TA_MA,       C_130K_USB_MA},
+	{ADC_CABLE_180K,    CABLE_180K,     C_180K_TA_MA,       C_180K_USB_MA},
+	{ADC_CABLE_200K,    CABLE_200K,     C_200K_TA_MA,       C_200K_USB_MA},
+	{ADC_CABLE_220K,    CABLE_220K,     C_220K_TA_MA,       C_220K_USB_MA},
+	{ADC_CABLE_270K,    CABLE_270K,     C_270K_TA_MA,       C_270K_USB_MA},
+	{ADC_CABLE_330K,    CABLE_330K,     C_330K_TA_MA,       C_330K_USB_MA},
+	{ADC_CABLE_620K,    CABLE_620K,     C_620K_TA_MA,       C_620K_USB_MA},
+	{ADC_CABLE_910K,    CABLE_910K,     C_910K_TA_MA,       C_910K_USB_MA},
+	{ADC_CABLE_NONE,    CABLE_NONE,     C_NONE_TA_MA,       C_NONE_USB_MA},
+};
+#endif
 
 /* for board revision */
 static hw_rev_type lge_bd_rev = HW_REV_EVB1;
@@ -101,6 +161,123 @@ static int __init display_kcal_setup(char *kcal)
 __setup("lge.kcal=", display_kcal_setup);
 #endif
 
+#ifdef CONFIG_LGE_PM
+int lge_pm_get_cable_info(struct chg_cable_info *cable_info)
+{
+	char *type_str[] = {"NOT INIT", "MHL 1K", "U_28P7K", "28P7K", "56K",
+		"100K", "130K", "180K", "200K", "220K", "270K", "330K", "620K", "910K",
+		"OPEN"};
+
+	struct pm8xxx_adc_chan_result result;
+	struct chg_cable_info *info = cable_info;
+	struct chg_cable_info_table *table;
+	int table_size = ARRAY_SIZE(pm8921_acc_cable_type_data);
+	int acc_read_value = 0;
+	int i, rc;
+	int count = 5;
+
+	if (!info) {
+		pr_err("lge_pm_get_cable_info: invalid info parameters\n");
+		return -1;
+	}
+
+	for (i = 0; i < count; i++) {
+		rc = pm8xxx_adc_mpp_config_read(PM8XXX_AMUX_MPP_12,
+				ADC_MPP_1_AMUX6, &result);
+
+		if (rc < 0) {
+			if (rc == -ETIMEDOUT) {
+				/* reason: adc read timeout, assume it is open cable */
+				info->cable_type = CABLE_NONE;
+				info->ta_ma = C_NONE_TA_MA;
+				info->usb_ma = C_NONE_USB_MA;
+				pr_err("[DEBUG] lge_pm_get_cable_info : adc read timeout \n");
+			} else {
+	    			pr_err("lge_pm_get_cable_info: adc read error - %d\n", rc);
+			}
+			return rc;
+		}
+
+		acc_read_value = (int)result.physical;
+		pr_info("%s: acc_read_value - %d\n", __func__, (int)result.physical);
+		mdelay(10);
+	}
+
+	info->cable_type = NO_INIT_CABLE;
+	info->ta_ma = C_NO_INIT_TA_MA;
+	info->usb_ma = C_NO_INIT_USB_MA;
+
+	/* assume: adc value must be existed in ascending order */
+	for (i = 0; i < table_size; i++) {
+			table = &pm8921_acc_cable_type_data[i];
+
+		if (acc_read_value <= table->threshhold) {
+			info->cable_type = table->type;
+			info->ta_ma = table->ta_ma;
+			info->usb_ma = table->usb_ma;
+			break;
+		}
+	}
+
+	pr_info("\n\n[PM]Cable detected: %d(%s)(%d, %d)\n\n",
+			acc_read_value, type_str[info->cable_type],
+			info->ta_ma, info->usb_ma);
+
+	return 0;
+}
+
+/* Belows are for using in interrupt context */
+struct chg_cable_info lge_cable_info;
+
+acc_cable_type lge_pm_get_cable_type(void)
+{
+	return lge_cable_info.cable_type;
+}
+
+unsigned lge_pm_get_ta_current(void)
+{
+	return lge_cable_info.ta_ma;
+}
+
+unsigned lge_pm_get_usb_current(void)
+{
+	return lge_cable_info.usb_ma;
+}
+
+/* This must be invoked in process context */
+void lge_pm_read_cable_info(void)
+{
+	lge_cable_info.cable_type = NO_INIT_CABLE;
+	lge_cable_info.ta_ma = C_NO_INIT_TA_MA;
+	lge_cable_info.usb_ma = C_NO_INIT_USB_MA;
+
+	lge_pm_get_cable_info(&lge_cable_info);
+}
+#endif
+
+#ifdef CONFIG_LGE_PM_BATTERY_ID_CHECKER
+int lge_battery_info = BATT_UNKNOWN;
+
+static int __init battery_information_setup(char *batt_info)
+{
+        if(!strcmp(batt_info, "ds2704_n"))
+                lge_battery_info = BATT_DS2704_N;
+        else if(!strcmp(batt_info, "ds2704_l"))
+                lge_battery_info = BATT_DS2704_L;
+        else if(!strcmp(batt_info, "isl6296_n"))
+                lge_battery_info = BATT_ISL6296_N;
+        else if(!strcmp(batt_info, "isl6296_l"))
+                lge_battery_info = BATT_ISL6296_L;
+        else
+                lge_battery_info = BATT_UNKNOWN;
+
+        printk(KERN_INFO "Battery : %s %d\n", batt_info, lge_battery_info);
+
+        return 1;
+}
+__setup("lge.batt_info=", battery_information_setup);
+#endif
+
 /* get boot mode information from cmdline.
  * If any boot mode is not specified,
  * boot mode is normal type.
@@ -121,6 +298,12 @@ int __init lge_boot_mode_init(char *s)
 	else if (!strcmp(s, "pifboot2"))
 		lge_boot_mode = LGE_BOOT_MODE_PIFBOOT2;
 
+#ifdef CONFIG_LGE_PM_LOW_BATT_CHG
+	if(lge_boot_mode == LGE_BOOT_MODE_CHARGERLOGO)
+		lge_set_charger_logo_state(1);
+	else
+		lge_set_charger_logo_state(0);
+#endif
 	return 1;
 }
 __setup("androidboot.mode=", lge_boot_mode_init);
@@ -128,6 +311,28 @@ __setup("androidboot.mode=", lge_boot_mode_init);
 enum lge_boot_mode_type lge_get_boot_mode(void)
 {
 	return lge_boot_mode;
+}
+
+static enum lge_boot_cable_type lge_boot_cable = LGE_BOOT_NO_INIT_CABLE;
+int __init lge_boot_cable_type_init(char *s)
+{
+    lge_boot_cable = 0;
+
+    for (;; s++) {
+        switch (*s) {
+            case '0' ... '9':
+                lge_boot_cable = 10*lge_boot_cable+(*s-'0');
+                break;
+            default:
+                return 1;
+        }
+    }
+}
+__setup("cable_type=", lge_boot_cable_type_init);
+
+enum lge_boot_cable_type lge_get_boot_cable_type(void)
+{
+    return lge_boot_cable;
 }
 
 int lge_get_factory_boot(void)
@@ -236,6 +441,18 @@ void __init lge_add_panic_handler_devices(void)
 }
 #endif /* CONFIG_LGE_CRASH_HANDLER */
 
+#ifdef CONFIG_LGE_ECO_MODE
+static struct platform_device lge_kernel_device = {
+	.name = "lge_kernel_driver",
+	.id = -1,
+};
+
+void __init lge_add_lge_kernel_devices(void)
+{
+	platform_device_register(&lge_kernel_device);
+}
+#endif
+
 #ifdef CONFIG_LGE_QFPROM_INTERFACE
 static struct platform_device qfprom_device = {
 	.name = "lge-apq8064-qfprom",
@@ -244,5 +461,36 @@ static struct platform_device qfprom_device = {
 void __init lge_add_qfprom_devices(void)
 {
 	platform_device_register(&qfprom_device);
+}
+#endif
+
+#ifdef CONFIG_LGE_BOOT_TIME_CHECK
+static int lge_time_stamp_mode = 0;
+
+int  lge_get_time_stamp_mode(void)
+{
+	return lge_time_stamp_mode;
+}
+
+static int __init lge_time_stamp(char *mode)
+{
+	if (!strncmp("enable", mode, 5))
+		lge_time_stamp_mode = 1;
+
+	return 1;
+}
+__setup("boot_time_stamp=", lge_time_stamp);
+
+static struct platform_device boot_time_device = {
+.name = "boot_time",
+	.id = -1,
+	.dev = {
+		.platform_data = NULL,
+	},
+};
+void __init lge_add_boot_time_checker(void)
+{
+	if(lge_get_time_stamp_mode())
+		platform_device_register(&boot_time_device);
 }
 #endif

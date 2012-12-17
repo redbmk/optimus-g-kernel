@@ -27,6 +27,8 @@
 #include <linux/pm_runtime.h>
 #include <linux/of.h>
 #include <linux/dma-mapping.h>
+#include <linux/reboot.h>
+
 
 #include <linux/usb.h>
 #include <linux/usb/otg.h>
@@ -50,6 +52,19 @@
 #include <mach/msm_xo.h>
 #include <mach/msm_bus.h>
 #include <mach/rpm-regulator.h>
+
+#include <mach/restart.h>
+#ifdef CONFIG_LGE_PM
+#include <mach/board_lge.h>
+#endif
+
+#ifdef CONFIG_LGE_AUX_NOISE
+/*
+ * 2012-07-20, bob.cho@lge.com
+ * extern api to remove aux noise
+ */
+#include "../../../sound/soc/codecs/wcd9310.h"
+#endif /*CONFIG_LGE_AUX_NOISE*/
 
 #define MSM_USB_BASE	(motg->regs)
 #define DRIVER_NAME	"msm_otg"
@@ -106,9 +121,16 @@ static const int vdd_val[VDD_TYPE_MAX][VDD_VAL_MAX] = {
 		},
 };
 
+#ifdef CONFIG_USB_G_LGE_ANDROID
+#define USB_PHY_3P3_PIF_VOL	3500000 /* uV */
+#endif
+
 static int msm_hsusb_ldo_init(struct msm_otg *motg, int init)
 {
 	int rc = 0;
+#ifdef CONFIG_USB_G_LGE_ANDROID
+	enum lge_boot_mode_type boot_mode;
+#endif
 
 	if (init) {
 		hsusb_3p3 = devm_regulator_get(motg->phy.dev, "HSUSB_3p3");
@@ -116,9 +138,23 @@ static int msm_hsusb_ldo_init(struct msm_otg *motg, int init)
 			dev_err(motg->phy.dev, "unable to get hsusb 3p3\n");
 			return PTR_ERR(hsusb_3p3);
 		}
-
+#ifdef CONFIG_USB_G_LGE_ANDROID
+		boot_mode = lge_get_boot_mode();
+		if( (boot_mode == LGE_BOOT_MODE_FACTORY)    ||
+		    (boot_mode == LGE_BOOT_MODE_FACTORY2)   ||
+		    (boot_mode == LGE_BOOT_MODE_PIFBOOT)    ||
+		    (boot_mode == LGE_BOOT_MODE_PIFBOOT2) ) 
+		{
+			rc = regulator_set_voltage(hsusb_3p3, USB_PHY_3P3_PIF_VOL,
+					USB_PHY_3P3_PIF_VOL);
+		} else {
+			rc = regulator_set_voltage(hsusb_3p3, USB_PHY_3P3_VOL_MIN,
+					USB_PHY_3P3_VOL_MAX);
+		}
+#else
 		rc = regulator_set_voltage(hsusb_3p3, USB_PHY_3P3_VOL_MIN,
 				USB_PHY_3P3_VOL_MAX);
+#endif
 		if (rc) {
 			dev_err(motg->phy.dev, "unable to set voltage level for"
 					"hsusb 3p3\n");
@@ -1100,6 +1136,26 @@ static void msm_otg_notify_charger(struct msm_otg *motg, unsigned mA)
 			mA > IDEV_ACA_CHG_LIMIT)
 		mA = IDEV_ACA_CHG_LIMIT;
 
+#ifdef CONFIG_LGE_PM
+	/* We replace original current limit into LGE
+	 * customized current limit only if cable is DCP or SDP.
+	 * XXX: In case of SDP(USB), android gadget will set current again.
+	 */
+	if (lge_pm_get_cable_type() != NO_INIT_CABLE) {
+		/*LGE_S jungwoo.yun@lge.com 2012-08-07 iusbmax set to 1100mA in 56K/910K cable and battery present*/
+		if((lge_pm_get_cable_type() == CABLE_56K || lge_pm_get_cable_type() == CABLE_910K) && pm8921_is_real_battery_present() == 1)
+		{
+			mA = 1100;
+			pr_info("CABLE_910K && pm8921_is_battery_present( ) 1100mA\n");
+		}
+		/*LGE_E jungwoo.yun@lge.com 2012-08-07 iusbmax set to 1100mA in 910K cable and battery present*/
+		else if(motg->chg_type == USB_SDP_CHARGER)
+			mA = lge_pm_get_usb_current();
+		else if (motg->chg_type == USB_DCP_CHARGER)
+			mA = lge_pm_get_ta_current();
+	}
+#endif
+
 	if (msm_otg_notify_chg_type(motg))
 		dev_err(motg->phy.dev,
 			"Failed notifying %d charger type to PMIC\n",
@@ -1308,15 +1364,15 @@ static int msm_otg_set_host(struct usb_otg *otg, struct usb_bus *host)
 		return -ENODEV;
 	}
 
-	if (!machine_is_apq8064_mako()) {
-		if (!motg->pdata->vbus_power && host) {
-			vbus_otg = devm_regulator_get(motg->phy.dev, "vbus_otg");
-			if (IS_ERR(vbus_otg)) {
-				pr_err("Unable to get vbus_otg\n");
-				return -ENODEV;
-			}
+#if !defined(CONFIG_LGE_PM) && !defined(CONFIG_MACH_APQ8064_MAKO)
+	if (!motg->pdata->vbus_power && host) {
+		vbus_otg = devm_regulator_get(motg->otg.dev, "vbus_otg");
+		if (IS_ERR(vbus_otg)) {
+			pr_err("Unable to get vbus_otg\n");
+			return -ENODEV;
 		}
 	}
+#endif
 
 	if (!host) {
 		if (otg->phy->state == OTG_STATE_A_HOST) {
@@ -2003,6 +2059,11 @@ static void msm_ta_detect_work(struct work_struct *w)
 #define MSM_CHG_DCD_MAX_RETRIES		6 /* Tdcd_tmout = 6 * 100 msec */
 #define MSM_CHG_PRIMARY_DET_TIME	(50 * HZ/1000) /* TVDPSRC_ON */
 #define MSM_CHG_SECONDARY_DET_TIME	(50 * HZ/1000) /* TVDMSRC_ON */
+
+//thoon81.kim
+static int firstboot_check = 1;
+extern struct chg_cable_info lge_cable_info;
+
 static void msm_chg_detect_work(struct work_struct *w)
 {
 	struct msm_otg *motg = container_of(w, struct msm_otg, chg_work.work);
@@ -2058,8 +2119,10 @@ static void msm_chg_detect_work(struct work_struct *w)
 		}
 		if (motg->pdata->enable_dcd)
 			is_dcd = msm_chg_check_dcd(motg);
+		dev_info(otg->dev, "check charger dcd\n");
 		tmout = ++motg->dcd_retries == MSM_CHG_DCD_MAX_RETRIES;
 		if (is_dcd || tmout) {
+			dev_info(otg->dev, "diable chg dcd\n");
 			if (motg->pdata->enable_dcd)
 				msm_chg_disable_dcd(motg);
 			msm_chg_enable_primary_det(motg);
@@ -2070,6 +2133,7 @@ static void msm_chg_detect_work(struct work_struct *w)
 		}
 		break;
 	case USB_CHG_STATE_DCD_DONE:
+		dev_info(otg->dev, "check primary charger detection\n");
 		vout = msm_chg_check_primary_det(motg);
 		line_state = readl_relaxed(USB_PORTSC) & PORTSC_LS;
 		dm_vlgc = line_state & PORTSC_LS_DM;
@@ -2105,6 +2169,17 @@ static void msm_chg_detect_work(struct work_struct *w)
 			motg->chg_state = USB_CHG_STATE_DETECTED;
 			delay = 0;
 		}
+#ifdef CONFIG_LGE_PM
+		/* read adc and store cable infomation */
+		lge_pm_read_cable_info();
+//thoon81.kim [START] enter download mode after 910K cable is pluged
+	if (lge_cable_info.cable_type == CABLE_910K && (lge_get_boot_cable_type() == LGE_BOOT_NO_INIT_CABLE || !firstboot_check)){
+		msm_set_restart_mode(RESTART_DLOAD);
+		kernel_restart(NULL);	
+	}
+	firstboot_check = 0;
+//thoon81.kim [END]
+#endif
 		break;
 	case USB_CHG_STATE_PRIMARY_DONE:
 		vout = msm_chg_check_secondary_det(motg);
@@ -2212,6 +2287,9 @@ static void msm_otg_init_sm(struct msm_otg *motg)
 	}
 }
 
+#if defined(CONFIG_TOUCH_REG_MAP_TM2000) || defined(CONFIG_TOUCH_REG_MAP_TM2372)
+extern void trigger_baseline_state_machine(int plug_in);
+#endif
 static void msm_otg_sm_work(struct work_struct *w)
 {
 	struct msm_otg *motg = container_of(w, struct msm_otg, sm_work);
@@ -2262,8 +2340,21 @@ static void msm_otg_sm_work(struct work_struct *w)
 				msm_chg_detect_work(&motg->chg_work.work);
 				break;
 			case USB_CHG_STATE_DETECTED:
+				pr_info("msm_otg: detected charger type=%d\n",motg->chg_type);
 				switch (motg->chg_type) {
 				case USB_DCP_CHARGER:
+#ifdef CONFIG_LGE_AUX_NOISE
+					/*
+					 * 2012-07-20, bob.cho@lge.com
+					 * call api to remove aux noise when charger connected
+					 */
+					tabla_codec_hph_pa_ctl(TABLA_EVENT_CHARGER_CONNECT);
+#endif /*CONFIG_LGE_AUX_NOISE*/
+
+#if defined(CONFIG_TOUCH_REG_MAP_TM2000) || defined(CONFIG_TOUCH_REG_MAP_TM2372)
+                    trigger_baseline_state_machine(1);
+#endif
+
 					/* Enable VDP_SRC */
 					ulpi_write(otg->phy, 0x2, 0x85);
 					/* fall through */
@@ -2296,8 +2387,19 @@ static void msm_otg_sm_work(struct work_struct *w)
 						OTG_STATE_B_PERIPHERAL;
 					break;
 				case USB_SDP_CHARGER:
+#if defined(CONFIG_LGE_PM) && defined(CONFIG_USB_G_LGE_ANDROID)
+					if (lge_pm_get_cable_type() == CABLE_56K &&
+						lge_get_boot_mode() == LGE_BOOT_MODE_NORMAL)
+					{
+						pr_info("PIF_56K detected with LGE_BOOT_MODE_NORMAL, restart!!!\n");
+						kernel_restart(NULL);
+					}
+#endif
 					msm_otg_notify_charger(motg,
 							IDEV_CHG_MIN);
+#if defined(CONFIG_TOUCH_REG_MAP_TM2000) || defined(CONFIG_TOUCH_REG_MAP_TM2372)
+					trigger_baseline_state_machine(1);
+#endif
 					if(!slimport_is_connected()) {
 						msm_otg_start_peripheral(otg, 1);
 						otg->phy->state =
@@ -2329,6 +2431,17 @@ static void msm_otg_sm_work(struct work_struct *w)
 			cancel_delayed_work_sync(&motg->check_ta_work);
 			motg->chg_state = USB_CHG_STATE_UNDEFINED;
 			motg->chg_type = USB_INVALID_CHARGER;
+			
+#ifdef CONFIG_LGE_AUX_NOISE
+			/*
+			 * 2012-07-20, bob.cho@lge.com
+			 * call api to remove aux noise when charger connected
+			 */
+			tabla_codec_hph_pa_ctl(TABLA_EVENT_CHARGER_DISCONNECT);
+#endif /*CONFIG_LGE_AUX_NOISE*/
+#if defined(CONFIG_TOUCH_REG_MAP_TM2000) || defined(CONFIG_TOUCH_REG_MAP_TM2372)
+            trigger_baseline_state_machine(0);
+#endif
 			msm_otg_notify_charger(motg, 0);
 			msm_otg_reset(otg->phy);
 			pm_runtime_put_noidle(otg->phy->dev);
@@ -3994,7 +4107,7 @@ static void __exit msm_otg_exit(void)
 	platform_driver_unregister(&msm_otg_driver);
 }
 
-module_init(msm_otg_init);
+device_initcall_sync(msm_otg_init);
 module_exit(msm_otg_exit);
 
 MODULE_LICENSE("GPL v2");

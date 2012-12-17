@@ -2436,3 +2436,5 @@ config FB_SH_MOBILE_MERAM
 	  2 YCbCr framebuffers to be configured.
 
 endmenu
+
+source "drivers/video/mhl/Kconfig"

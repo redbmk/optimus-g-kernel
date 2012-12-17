@@ -36,6 +36,7 @@
 #include <linux/usb/serial.h>
 #include <linux/serial.h>
 #include "usb-wwan.h"
+#include <mach/mdm-peripheral.h>
 
 static bool debug;
 
@@ -244,7 +245,10 @@ int usb_wwan_write(struct tty_struct *tty, struct usb_serial_port *port,
 		/* send the data */
 		memcpy(this_urb->transfer_buffer, buf, todo);
 		this_urb->transfer_buffer_length = todo;
-
+		if(buf[0] == 0xa){
+			tty->ldisc_cnt = 0;
+			tty->n_tty_cnt=0;
+		}
 		spin_lock_irqsave(&intfdata->susp_lock, flags);
 		if (intfdata->suspended) {
 			usb_anchor_urb(this_urb, &portdata->delayed);
@@ -310,10 +314,19 @@ static void usb_wwan_in_work(struct work_struct *w)
 
 		len = urb->actual_length - portdata->n_read;
 		data = urb->transfer_buffer + portdata->n_read;
+		if (data[0] == 0x9 && urb->actual_length == 16){
+			tty->start_debug=1;
+		}
+		if(tty->start_debug == 1 && data[0]==0x8 && urb->actual_length==8){
+			tty->start_debug=0;
+		}
 		count = tty_insert_flip_string(tty, data, len);
 		tty_flip_buffer_push(tty);
 		tty_kref_put(tty);
 
+		dbg_log_event(NULL, "usb_wwan count:", count);
+		dbg_log_event(NULL, "usb_wwan len:", len);
+		dbg_log_event(NULL, "usb_wwan data:", (unsigned long)tty);
 		if (count < len) {
 			dbg("%s: len:%d count:%d n_read:%d\n", __func__,
 					len, count, portdata->n_read);
@@ -495,6 +508,7 @@ int usb_wwan_open(struct tty_struct *tty, struct usb_serial_port *port)
 	/* explicitly set the driver mode to raw */
 	tty->raw = 1;
 	tty->real_raw = 1;
+	tty->update_room_in_ldisc = 1;
 
 	set_bit(TTY_NO_WRITE_SPLIT, &tty->flags);
 	dbg("%s", __func__);

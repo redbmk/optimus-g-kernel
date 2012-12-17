@@ -15,6 +15,11 @@
 
 #include <linux/pwm.h>
 
+
+#if !defined(CONFIG_MACH_APQ8064_J1D)|| !defined(CONFIG_MACH_APQ8064_J1KD)
+#define LGE_PWM_LED	1
+#endif
+
 #define PM8XXX_PWM_DEV_NAME	"pm8xxx-pwm"
 
 #define PM8XXX_PWM_PERIOD_MIN	7 /* usec: 19.2M, n=6, m=0, pre=2 */
@@ -84,9 +89,18 @@ struct pm8xxx_pwm_period {
  * start_idx - index in the LUT
  */
 struct pm8xxx_pwm_duty_cycles {
+	#if defined(LGE_PWM_LED)
+	int *duty_pcts0;
+	int *duty_pcts1;
+	int num_duty_pcts0;
+	int num_duty_pcts1;
+	int duty_ms0;		
+	int duty_ms1;	
+	#else
 	int *duty_pcts;
 	int num_duty_pcts;
 	int duty_ms;
+	#endif
 	int start_idx;
 };
 

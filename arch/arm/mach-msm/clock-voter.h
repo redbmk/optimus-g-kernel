@@ -36,6 +36,7 @@ static inline struct clk_voter *to_clk_voter(struct clk *clk)
 			.ops = &clk_ops_voter, \
 			.rate = _default_rate, \
 			CLK_INIT(clk_name.c), \
+			.warned = true, \
 		}, \
 	}
 

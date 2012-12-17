@@ -51,9 +51,17 @@ static void notify_work_start_reset(struct work_struct *work)
 }
 static DECLARE_WORK(modem_notifier_start_reset_work, &notify_work_start_reset);
 
+
 void modem_queue_start_reset_notify(void)
 {
 	int ret;
+
+	/* LGE_CHANGES */
+	{
+			extern void dsps_disable_irq_crash_handler(void);
+			dsps_disable_irq_crash_handler();
+	}
+	/* END LGE_CHANGES */
 
 	ret = queue_work(modem_notifier_wq, &modem_notifier_start_reset_work);
 

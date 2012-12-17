@@ -377,6 +377,10 @@ struct mdp4_overlay_pipe {
 	struct completion comp;
 	struct completion dmas_comp;
 	struct mdp4_iommu_pipe_info iommu;
+#if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT)
+	uint32 ext_flag;
+	struct msm_fb_data_type *mfd;
+#endif
 };
 
 struct mdp4_statistic {
@@ -861,6 +865,9 @@ void mdp4_overlay_panel_3d(int mixer_num, uint32 panel_3d);
 int mdp4_overlay_3d_sbys(struct fb_info *info, struct msmfb_overlay_3d *req);
 void mdp4_dsi_cmd_3d_sbys(struct msm_fb_data_type *mfd,
 			 struct msmfb_overlay_3d *r3d);
+#ifdef CONFIG_HRZ_II
+int hrz_mode(struct platform_device *pdev, int hrz_mode);
+#endif
 void mdp4_dsi_video_3d_sbys(struct msm_fb_data_type *mfd,
 			 struct msmfb_overlay_3d *r3d);
 
@@ -950,4 +957,7 @@ void mdp4_writeback_kickoff_video(struct msm_fb_data_type *mfd,
 		struct mdp4_overlay_pipe *pipe);
 #endif
 
+void mdp4_overlay_dsi_video_wait4idle(struct msm_fb_data_type *mfd);
+void mdp4_overlay_dtv_wait4idle(struct msm_fb_data_type *mfd);
+void mdp4_overlay_lcdc_wait4idle(struct msm_fb_data_type *mfd);
 #endif /* MDP_H */

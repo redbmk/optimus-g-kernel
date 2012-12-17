@@ -109,6 +109,11 @@ enum battery_type {
 	BATT_PALLADIUM,
 	BATT_DESAY,
 	BATT_LGE,
+#ifdef CONFIG_LGE_PM
+	BATT_1900_LGE,
+	BATT_2100_LGE,
+	BATT_2200_LGE,
+#endif
 };
 
 /**
@@ -147,6 +152,24 @@ struct pm8921_bms_platform_data {
 extern struct pm8921_bms_battery_data  palladium_1500_data;
 extern struct pm8921_bms_battery_data  desay_5200_data;
 extern struct pm8921_bms_battery_data  lge_2100_mako_data;
+
+#ifdef CONFIG_LGE_PM
+extern struct pm8921_bms_battery_data  lge_1900_data;
+extern struct pm8921_bms_battery_data  lge_1840_data;
+extern struct pm8921_bms_battery_data  LGE_2100_PMH_data;
+extern struct pm8921_bms_battery_data  LGE_2200_PMH_data;
+#endif
+
+
+/* LGE_PM_S Added temp offset 5 Celsius kwangjae1.lee@lge.com */
+
+#if defined(CONFIG_MACH_APQ8064_J1A)||defined(CONFIG_MACH_APQ8064_J1U) ||defined(CONFIG_MACH_APQ8064_J1SP)
+#define LGE_temp_OFFSET 50
+#else
+#define LGE_temp_OFFSET 0
+#endif
+
+/* LGE_PM_E Added temp offset 5 Celsius kwangjae1.lee@lge.com */
 /**
  * pm8921_bms_get_vsense_avg - return the voltage across the sense
  *				resitor in microvolts

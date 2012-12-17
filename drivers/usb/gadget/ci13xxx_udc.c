@@ -69,6 +69,15 @@
 
 #include "ci13xxx_udc.h"
 
+#ifdef CONFIG_USB_G_LGE_ANDROID //build error fix 0820
+#include <mach/board_lge.h>
+#endif
+
+#ifdef CONFIG_USB_G_LGE_ANDROID_PFSC
+#include <mach/board_lge.h>
+
+#define PORTSC_PFSC BIT(24)
+#endif
 
 /******************************************************************************
  * DEFINE
@@ -316,6 +325,10 @@ static int hw_device_init(void __iomem *base)
  */
 static int hw_device_reset(struct ci13xxx *udc)
 {
+#ifdef CONFIG_USB_G_LGE_ANDROID_PFSC
+    enum lge_boot_mode_type boot_mode;
+#endif
+
 	/* should flush & stop before reset */
 	hw_cwrite(CAP_ENDPTFLUSH, ~0, ~0);
 	hw_cwrite(CAP_USBCMD, USBCMD_RS, 0);
@@ -346,13 +359,29 @@ static int hw_device_reset(struct ci13xxx *udc)
 	 * can be set to lesser value to gain performance.
 	 */
 	if (udc->udc_driver->flags & CI13XXX_ZERO_ITC)
-		hw_cwrite(CAP_USBCMD, USBCMD_ITC_MASK, USBCMD_ITC(0));
+		hw_cwrite(CAP_USBCMD, USBCMD_ITC_MASK, USBCMD_ITC(8));
 
 	if (hw_cread(CAP_USBMODE, USBMODE_CM) != USBMODE_CM_DEVICE) {
 		pr_err("cannot enter in device mode");
 		pr_err("lpm = %i", hw_bank.lpm);
 		return -ENODEV;
 	}
+
+#ifdef CONFIG_USB_G_LGE_ANDROID_PFSC
+    /* USB FS only used in 130K
+     *
+     * LGE_BOOT_MODE_FACTORY: 130K + QEM
+     * LGE_BOOT_MODE_PIFBOOT: 130K
+     * LGE_BOOT_MODE_FACTORY2: 56K + QEM
+     * LGE_BOOT_MODE_PIFBOOT2: 56K
+     */
+    boot_mode = lge_get_boot_mode();
+    if ((boot_mode == LGE_BOOT_MODE_FACTORY)  ||
+        (boot_mode == LGE_BOOT_MODE_PIFBOOT))
+    {
+        hw_cwrite(CAP_PORTSC, PORTSC_PFSC, PORTSC_PFSC);
+    }
+#endif
 
 	return 0;
 }
@@ -2112,6 +2141,14 @@ static void isr_suspend_handler(struct ci13xxx *udc)
 		udc->vbus_active) {
 		if (udc->suspended == 0) {
 			spin_unlock(udc->lock);
+                        #ifdef CONFIG_USB_G_LGE_ANDROID
+			if (lge_get_factory_boot())
+			{
+				pr_info("%s: pif cable is plugged, ignore it\n", __func__);
+				spin_lock(udc->lock);
+				return;
+			}
+			#endif
 			udc->driver->suspend(&udc->gadget);
 			if (udc->udc_driver->notify_event)
 				udc->udc_driver->notify_event(udc,

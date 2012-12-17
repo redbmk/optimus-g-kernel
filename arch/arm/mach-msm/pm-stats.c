@@ -52,6 +52,13 @@ void msm_pm_add_stat(enum msm_pm_time_stats_id id, int64_t t)
 	spin_lock_irqsave(&msm_pm_stats_lock, flags);
 	stats = __get_cpu_var(msm_pm_stats).stats;
 
+#if 1 //LGE_CHANGE_S workaround for corruption of id variable. QCT case(00908248), LGU+ QE3 TD#112265
+	if(id>=MSM_PM_STAT_COUNT){
+		__WARN();
+		goto add_bail;
+	}
+#endif
+
 	if (!stats[id].enabled)
 		goto add_bail;
 
@@ -132,7 +139,9 @@ static int msm_pm_read_proc
 
 		/* Skip the disabled ones */
 		if (!stats[id].enabled) {
+#ifndef CONFIG_MACH_LGE
 			*p = '\0';
+#endif
 			p++;
 			goto again;
 		}

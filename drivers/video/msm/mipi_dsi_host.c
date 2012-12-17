@@ -62,6 +62,7 @@ enum {
 };
 
 struct dcs_cmd_list	cmdlist;
+#define DSI_HOST_DEBUG
 
 #ifdef CONFIG_FB_MSM_MDP40
 void mipi_dsi_mdp_stat_inc(int which)
@@ -1147,6 +1148,8 @@ int mipi_dsi_cmds_tx(struct dsi_buf *tp, struct dsi_cmd_desc *cmds, int cnt)
 	* one pixel line, since it only transmit it
 	* during BLLP.
 	*/
+	
+	
 	dsi_ctrl = MIPI_INP(MIPI_DSI_BASE + 0x0000);
 	video_mode = dsi_ctrl & 0x02; /* VIDEO_MODE_EN */
 	if (video_mode) {
@@ -1164,9 +1167,21 @@ int mipi_dsi_cmds_tx(struct dsi_buf *tp, struct dsi_cmd_desc *cmds, int cnt)
 		mipi_dsi_enable_irq(DSI_CMD_TERM);
 		mipi_dsi_buf_init(tp);
 		mipi_dsi_cmd_dma_add(tp, cm);
+#if defined(CONFIG_MACH_LGE)
+		if (mipi_dsi_cmd_dma_tx(tp) == 0) 
+		{
+			printk(KERN_INFO "%s : mipi_dsi_cmd_dma_tx timeout!!! cm num = %d, cm payload = %s/n", __func__, i, cm->payload);
+			return -1;
+		}
+#else
 		mipi_dsi_cmd_dma_tx(tp);
+#endif
 		if (cm->wait)
+#ifdef CONFIG_MACH_LGE
+			mdelay(cm->wait);
+#else
 			msleep(cm->wait);
+#endif
 		cm++;
 	}
 

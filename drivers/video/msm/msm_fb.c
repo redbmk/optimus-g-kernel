@@ -44,6 +44,7 @@
 #include <linux/sync.h>
 #include <linux/sw_sync.h>
 #include <linux/file.h>
+#include <linux/iommu.h>
 
 #define MSM_FB_C
 #include "msm_fb.h"
@@ -51,6 +52,16 @@
 #include "tvenc.h"
 #include "mdp.h"
 #include "mdp4.h"
+
+// DSDR_START
+#ifndef LGE_DSDR_SUPPORT
+#define LGE_DSDR_SUPPORT
+#endif
+// DSDR_END
+
+#ifdef CONFIG_LGE_HIDDEN_RESET
+#include <mach/board_lge.h>
+#endif
 
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
 #define MSM_FB_NUM	3
@@ -830,12 +841,25 @@ static void msmfb_early_resume(struct early_suspend *h)
 		}
 	}
 
+	printk("+++ msmfb_early_resume \n");
 	msm_fb_resume_sub(mfd);
+	printk("--- msmfb_early_resume \n");
 }
 #endif
 
 static int unset_bl_level, bl_updated;
+#if defined(CONFIG_MACH_LGE)
+static int check_updated = 0;
+#endif
+#if defined(CONFIG_LGE_BACKLIGHT_LM3530)
+static int bl_level_old = 202; //202th Android Brightness will be escalated to BL which is Default BL
+#elif defined(CONFIG_LGE_BACKLIGHT_LM3533)
+static int bl_level_old = -1; /* LGE_CHANGE */
+#elif defined(CONFIG_LGE_BACKLIGHT_LM3536)
+static int bl_level_old = 0x2E; /* LGE_CHANGE */
+#else
 static int bl_level_old;
+#endif
 
 static int mdp_bl_scale_config(struct msm_fb_data_type *mfd,
 						struct mdp_bl_scale_data *data)
@@ -875,7 +899,27 @@ void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl)
 
 	if (!mfd->panel_power_on || !bl_updated) {
 		unset_bl_level = bkl_lvl;
+#ifdef CONFIG_MACH_LGE
+		/* LGE_CHANGE
+		 * Only when booting state,
+		 * it turns on backlight right after showing booting logo image
+		 * 2012-01-13, baryun.hwang@lge.com
+		 */
+		if (system_state != SYSTEM_BOOTING)
+		{
+			printk(KERN_INFO "%s : unset_bl_level = %d, mfd->panel_power_on = %d, bl_updated = %d\n", __func__, unset_bl_level, mfd->panel_power_on, bl_updated);
+			if (!check_updated) {
+				printk(KERN_INFO "%s : check_update was 0\n", __func__);
+#endif
 		return;
+#ifdef CONFIG_MACH_LGE
+			}
+			else
+			{
+				printk(KERN_INFO "%s : check_update was 1\n", __func__);
+			}
+		}
+#endif
 	} else {
 		unset_bl_level = 0;
 	}
@@ -884,6 +928,7 @@ void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl)
 	pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
 
 	if ((pdata) && (pdata->set_backlight)) {
+		printk(KERN_INFO "%s : backlight on started!!(bkl_lvl = %d, unset_bl_level = %d)\n", __func__, bkl_lvl, unset_bl_level);
 		down(&mfd->sem);
 		if (bl_level_old == temp) {
 			up(&mfd->sem);
@@ -894,6 +939,7 @@ void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl)
 		mfd->bl_level = bkl_lvl;
 		bl_level_old = temp;
 		up(&mfd->sem);
+		printk(KERN_INFO "%s : backlight on completed!!\n", __func__);
 	}
 }
 
@@ -903,6 +949,9 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	struct msm_fb_panel_data *pdata = NULL;
 	int ret = 0;
+#if defined(CONFIG_MACH_LGE)
+	int retry_cnt = 0;
+#endif
 
 	if (!op_enable)
 		return -EPERM;
@@ -916,11 +965,38 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 	switch (blank_mode) {
 	case FB_BLANK_UNBLANK:
 		if (!mfd->panel_power_on) {
+#if defined(CONFIG_MACH_LGE)
+			if (mfd->index == 0)
+			{
+				do
+				{
+					ret = pdata->on(mfd->pdev);
+					if (ret == 0) {
+						mfd->panel_power_on = TRUE;
+
+						break;
+					} else {
+						pdata->off(mfd->pdev);
+						retry_cnt++;
+					}
+				} while (retry_cnt < 10);
+			}
+			else
+			{
+				ret = pdata->on(mfd->pdev);
+				if (ret == 0) {
+					mfd->panel_power_on = TRUE;
+				}
+			}
+			printk(KERN_INFO " %s : FB_BLANK_UNBLANK : ret = %d, retry_cnt = %d\n",
+						 __func__, ret, retry_cnt);
+#else
 			ret = pdata->on(mfd->pdev);
 			if (ret == 0) {
 				mfd->panel_power_on = TRUE;
 				mfd->panel_driver_on = mfd->op_enable;
 			}
+#endif
 		}
 		break;
 
@@ -936,6 +1012,10 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 			curr_pwr_state = mfd->panel_power_on;
 			mfd->panel_power_on = FALSE;
 			bl_updated = 0;
+		#if defined(CONFIG_MACH_LGE)
+			check_updated = 0;
+			printk(KERN_INFO "######## %s : check_update set 0\n", __func__);
+		#endif
 
 			/* clean fb to prevent displaying old fb */
 			memset((void *)info->screen_base, 0,
@@ -1211,9 +1291,14 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	var->grayscale = 0,	/* No graylevels */
 	var->nonstd = 0,	/* standard pixel format */
 	var->activate = FB_ACTIVATE_VBL,	/* activate it at vsync */
-#if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT)
+#if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT) ||\
+	(defined(CONFIG_MACH_LGE) && (defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT) ||\
+		defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT)))
 	var->height = 102,      /* height of picture in mm */
 	var->width = 61,        /* width of picture in mm */
+#elif defined(CONFIG_MACH_LGE) && defined(CONFIG_FB_MSM_MIPI_HITACHI_VIDEO_HD_PT)
+	var->height = 103,	/* height of picture in mm */
+	var->width = 58,	/* width of picture in mm */
 #else
 	var->height = -1,	/* height of picture in mm */
 	var->width = -1,	/* width of picture in mm */
@@ -1346,6 +1431,7 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	if (!remainder_mode2)
 		remainder_mode2 = PAGE_SIZE;
 
+#if !defined(CONFIG_MACH_LGE)
 	/*
 	 * calculate smem_len based on max size of two supplied modes.
 	 * Only fb0 has mem. fb1 and fb2 don't have mem.
@@ -1367,6 +1453,18 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 		fix->smem_len = 0;
 	}
 
+#else
+		fix->smem_len = MAX((msm_fb_line_length(mfd->index,
+							panel_info->xres,
+							bpp) *
+				     panel_info->yres + PAGE_SIZE -
+				     remainder) * mfd->fb_page,
+				    (msm_fb_line_length(mfd->index,
+							panel_info->mode2_xres,
+							bpp) *
+				     panel_info->mode2_yres + PAGE_SIZE -
+				     remainder_mode2) * mfd->fb_page);
+#endif
 	mfd->var_xres = panel_info->xres;
 	mfd->var_yres = panel_info->yres;
 	mfd->var_frame_rate = panel_info->frame_rate;
@@ -1477,7 +1575,9 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	fbram_phys += fbram_offset;
 	fbram_size -= fbram_offset;
 
+#if !defined(CONFIG_MACH_LGE)
 	if (!bf_supported || mfd->index == 0)
+#endif
 		if (fbram_size < fix->smem_len) {
 			pr_err("error: no more framebuffer memory!\n");
 			return -ENOMEM;
@@ -1491,7 +1591,7 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 					GEN_POOL,
 					fbi->fix.smem_len,
 					SZ_4K,
-					0,
+					IOMMU_WRITE | IOMMU_READ,
 					&(mfd->display_iova));
 
 	msm_iommu_map_contig_buffer(fbi->fix.smem_start,
@@ -1499,7 +1599,7 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 					GEN_POOL,
 					fbi->fix.smem_len,
 					SZ_4K,
-					0,
+					IOMMU_READ,
 					&(mfd->display_iova));
 
 	msm_iommu_map_contig_buffer(fbi->fix.smem_start,
@@ -1507,10 +1607,12 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 					GEN_POOL,
 					fbi->fix.smem_len,
 					SZ_4K,
-					0,
+					IOMMU_READ,
 					&(mfd->rotator_iova));
 
+#if !defined(CONFIG_MACH_LGE)
 	if (!bf_supported || mfd->index == 0)
+#endif
 		memset(fbi->screen_base, 0x0, fix->smem_len);
 
 	mfd->op_enable = TRUE;
@@ -1572,9 +1674,43 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 		msm_fb_pdata->update_lcdc_lut();
 #endif
 #ifdef CONFIG_FB_MSM_LOGO
+#if defined(CONFIG_MACH_LGE) && \
+	(defined(CONFIG_FB_MSM_DEFAULT_DEPTH_ARGB8888) ||\
+	 defined(CONFIG_FB_MSM_DEFAULT_DEPTH_RGBA8888))
+	/* LGE_CHANGE
+	 * This function is used to load LG logo image in 888 rle format.
+	 * However, it is only allowed when MIPI LCD mode not other modes
+	 * such as HDMI, DTV etc.
+	 * it is also add early backlight on
+	 * 2011-10-20, baryun.hwang@lge.com
+	 */
+	if (mfd->panel_info.type == MIPI_VIDEO_PANEL ||
+			mfd->panel_info.type == MIPI_CMD_PANEL){
+#ifdef CONFIG_LGE_HIDDEN_RESET
+/* LGE_CHANGE
+ * skip lg logo & turn on backlight when hidden reset boot
+ * 2012-07-04, tei.kim@lge.com
+ */
+		if (on_hidden_reset == 0) {
+			msm_fb_open(mfd->fbi, 0);
+		}
+
+		if (on_hidden_reset == 1)
+			msm_fb_set_backlight(mfd, bl_level_old);
+		else
+			msm_fb_set_backlight(mfd, 0);
+#else
+		msm_fb_open(mfd->fbi, 0);
+
+		msm_fb_set_backlight(mfd, 0);
+#endif
+	}
+
+#else /* QCT orignal code */
 	/* Flip buffer */
 	if (!load_565rle_image(INIT_IMAGE_FILE, bf_supported))
 		;
+#endif
 #endif
 	ret = 0;
 
@@ -1737,6 +1873,8 @@ static int msm_fb_open(struct fb_info *info, int user)
 	}
 
 	if (!mfd->ref_cnt) {
+
+#if !defined(CONFIG_MACH_LGE)
 		if (!bf_supported ||
 			(info->node != 1 && info->node != 2))
 			mdp_set_dma_pan_info(info, NULL, TRUE);
@@ -1744,6 +1882,9 @@ static int msm_fb_open(struct fb_info *info, int user)
 			pr_debug("%s:%d no mdp_set_dma_pan_info %d\n",
 				__func__, __LINE__, info->node);
 
+#else
+		mdp_set_dma_pan_info(info, NULL, TRUE);
+#endif
 		if (msm_fb_blank_sub(FB_BLANK_UNBLANK, info, TRUE)) {
 			printk(KERN_ERR "msm_fb_open: can't turn on display!\n");
 			return -1;
@@ -1884,6 +2025,17 @@ static int msm_fb_pan_display_ex(struct fb_var_screeninfo *var,
 	return ret;
 }
 
+//delay backlight on to avoid underrun in first boot logo image
+#if defined(CONFIG_MACH_LGE)
+static int splash_screen_done = 0;
+#if defined(CONFIG_LGE_BACKLIGHT_LM3530)
+static int default_bl_value = 212;
+#elif defined(CONFIG_LGE_BACKLIGHT_LM3533)
+static int default_bl_value = -1;
+#elif defined(CONFIG_LGE_BACKLIGHT_LM3630)
+static int default_bl_value = 0x2E;
+#endif
+#endif
 static int msm_fb_pan_display(struct fb_var_screeninfo *var,
 			      struct fb_info *info)
 {
@@ -1898,6 +2050,7 @@ static int msm_fb_pan_display_sub(struct fb_var_screeninfo *var,
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	struct msm_fb_panel_data *pdata;
 
+#if !defined(CONFIG_MACH_LGE)
 	/*
 	 * If framebuffer is 2, io pen display is not allowed.
 	 */
@@ -1906,6 +2059,18 @@ static int msm_fb_pan_display_sub(struct fb_var_screeninfo *var,
 		       __func__, info->node);
 		return -EPERM;
 	}
+#endif
+
+#ifdef CONFIG_LGE_HIDDEN_RESET
+/* LGE_CHANGE
+ * skip pan_display to disable boot animation when hidden reset boot
+ * 2012-07-04, tei.kim@lge.com
+ */
+	if (on_hidden_reset == 1) {
+		printk(KERN_INFO "[hidden_reset] skip pan_display\n");
+		return -EPERM;
+	}
+#endif
 
 	if (info->node != 0 || mfd->cont_splash_done)	/* primary */
 		if ((!mfd->op_enable) || (!mfd->panel_power_on))
@@ -1990,20 +2155,46 @@ static int msm_fb_pan_display_sub(struct fb_var_screeninfo *var,
 	msm_fb_signal_timeline(mfd);
 	up(&msm_fb_pan_sem);
 
+#if defined(CONFIG_MACH_LGE)
+	if ((unset_bl_level && !bl_updated) || !splash_screen_done) {
+#else
 	if (unset_bl_level && !bl_updated) {
+#endif
 		pdata = (struct msm_fb_panel_data *)mfd->pdev->
 			dev.platform_data;
 		if ((pdata) && (pdata->set_backlight)) {
+			printk(KERN_INFO "%s : backlight on started!!(mfd->bl_level = %d, unset_bl_level = %d)\n", __func__, mfd->bl_level, unset_bl_level);
 			down(&mfd->sem);
+
+#if defined(CONFIG_MACH_LGE)
+			if(!splash_screen_done) {
+				mdelay(20);
+				mfd->bl_level = default_bl_value;
+				splash_screen_done = 1;
+			}
+			else
+				mfd->bl_level = unset_bl_level;
+#else
 			mfd->bl_level = unset_bl_level;
+#endif
 			pdata->set_backlight(mfd);
 			bl_level_old = unset_bl_level;
 			up(&mfd->sem);
 			bl_updated = 1;
+			printk(KERN_INFO "%s : backlight on completed!!\n", __func__);
 		}
 	}
 
 	++mfd->panel_info.frame_count;
+
+#if defined(CONFIG_MACH_LGE)
+	if (!check_updated)
+	{
+		printk(KERN_INFO "%s : check_update set 1\n", __func__);
+		check_updated = 1;
+	}
+#endif
+
 	return 0;
 }
 
@@ -2108,8 +2299,10 @@ static int msm_fb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 	if ((var->xres_virtual <= 0) || (var->yres_virtual <= 0))
 		return -EINVAL;
 
+#if !defined(CONFIG_MACH_LGE)
 	if (!bf_supported ||
 		(info->node != 1 && info->node != 2))
+#endif
 		if (info->fix.smem_len <
 		    (var->xres_virtual*
 		     var->yres_virtual*
@@ -2967,12 +3160,15 @@ static int msmfb_blit(struct fb_info *info, void __user *p)
 	struct mdp_blit_req_list req_list_header;
 
 	int count, i, req_list_count;
+
+#if !defined(CONFIG_MACH_LGE)
 	if (bf_supported &&
 		(info->node == 1 || info->node == 2)) {
 		pr_err("%s: no pan display for fb%d.",
 		       __func__, info->node);
 		return -EPERM;
 	}
+#endif
 	/* Get the count size for the total BLIT request. */
 	if (copy_from_user(&req_list_header, p, sizeof(req_list_header)))
 		return -EFAULT;
@@ -3211,12 +3407,14 @@ static int msmfb_overlay_play(struct fb_info *info, unsigned long *argp)
 		pdata = (struct msm_fb_panel_data *)mfd->pdev->
 			dev.platform_data;
 		if ((pdata) && (pdata->set_backlight)) {
+			printk(KERN_INFO "%s : backlight on started!!(mfd->bl_level = %d, unset_bl_level = %d)\n", __func__, mfd->bl_level, unset_bl_level);
 			down(&mfd->sem);
 			mfd->bl_level = unset_bl_level;
 			pdata->set_backlight(mfd);
 			bl_level_old = unset_bl_level;
 			up(&mfd->sem);
 			bl_updated = 1;
+			printk(KERN_INFO "%s : backlight on completed!!\n", __func__);
 		}
 	}
 
@@ -3832,6 +4030,14 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 				__func__);
 			return ret;
 		}
+
+#if defined (CONFIG_LGE_BROADCAST_TDMB) || defined (CONFIG_LGE_BROADCAST_ONESEG)
+		if(csc_matrix.id == -1) {
+			memcpy(mdp_csc_convert[1].csc_mv, csc_matrix.csc_mv, sizeof(csc_matrix.csc_mv));
+			return ret;
+		}
+#endif  /* CONFIG_LGE_BROADCAST */
+
 		down(&msm_fb_ioctl_ppp_sem);
 		msmfb_set_color_conv(&csc_matrix);
 		up(&msm_fb_ioctl_ppp_sem);
@@ -4133,6 +4339,13 @@ struct platform_device *msm_fb_add_device(struct platform_device *pdev)
 	MSM_FB_INFO("setting pdata->panel_info.fb_num to %d. type: %d\n",
 			pdata->panel_info.fb_num, type);
 #endif
+#ifdef LGE_DSDR_SUPPORT
+/* LGE_CHANGE
+ * [DSDR]
+ * 2012-04-12, antonio.hwang@lge.com
+ */
+    if(pdata->panel_info.fb_num < 3) pdata->panel_info.fb_num = 3;
+#endif //LGE_DSDR_SUPPORT
 	fb_num = pdata->panel_info.fb_num;
 
 	if (fb_num <= 0)

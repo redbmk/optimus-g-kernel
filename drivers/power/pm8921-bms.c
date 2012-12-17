@@ -31,6 +31,29 @@
 #include <linux/mutex.h>
 #include <linux/rtc.h>
 
+/* LGE_S jungshik.park@lge.com 2012-04-18 for bms debugging */
+#ifdef LGE_BMS_DEBUG
+#define pr_bms_fmt(fmt) "[BMS:%s] " fmt, __func__
+#define dbg(fmt, ...) \
+	printk(pr_bms_fmt(fmt), ##__VA_ARGS__)
+#else
+#define dbg(fmt, ...) \
+	do {} while (0)
+#endif
+/* LGE_E jungshik.park@lge.com 2012-04-18 for bms debugging */
+
+#ifdef CONFIG_LGE_PM
+/* When low(under 3.3V), happend blue screen. Just protect phone. */
+#define LGE_REPORT_SOC_ONE
+#endif
+
+#ifdef CONFIG_LGE_PM
+/* add for thermister test */
+#include <mach/board_lge.h>
+extern struct pseudo_batt_info_type pseudo_batt_info;
+extern struct bms_batt_info_type bms_batt_info;
+#endif
+
 #define BMS_CONTROL		0x224
 #define BMS_S1_DELAY		0x225
 #define BMS_OUTPUT0		0x230
@@ -51,6 +74,12 @@
 #define TEST_PROGRAM_REV	0x339
 
 #define TEMP_SOC_STORAGE	0x107
+
+#ifdef LGE_BMS_DEBUG
+/* LGE_S jungshik.park@lge.com 2012-04-14 debug OCV update currnet limit*/
+#define BMS_OCV_UPDATE_CURRENT_LIMIT	0x22D
+/* LGE_E jungshik.park@lge.com 2012-04-14 debug OCV update currnet limit*/
+#endif
 
 #define TEMP_IAVG_STORAGE	0x105
 #define TEMP_IAVG_STORAGE_USE_MASK	0x0F
@@ -188,6 +217,10 @@ static int last_soc = -EINVAL;
 static int last_real_fcc_mah = -EINVAL;
 static int last_real_fcc_batt_temp = -EINVAL;
 
+#ifdef CONFIG_LGE_PM
+static int prev_calculated_soc = -EINVAL;  /* [LGE_UPDATE for preventing the plus SoC gauging] */
+#endif
+
 static int bms_ops_set(const char *val, const struct kernel_param *kp)
 {
 	if (*(int *)kp->arg == -EINVAL)
@@ -218,6 +251,12 @@ static int bms_start_cc_uah;
 static int bms_end_percent;
 static int bms_end_ocv_uv;
 static int bms_end_cc_uah;
+
+#ifdef CONFIG_LGE_PM
+static int bms_calc_count = 0; /* [LGE_UPDATE for BMS level tuning] */
+static int global_pc_soc = 0;  /* [LGE_UPDATE for BMS level tuning] */
+#define BMS_CALC_THRESHOLD_COUNT 2  /* [LGE_UPDATE for BMS level tuning] */
+#endif
 
 static int bms_ro_ops_set(const char *val, const struct kernel_param *kp)
 {
@@ -1460,6 +1499,9 @@ static int calculate_remaining_charge_uah(struct pm8921_bms_chip *chip,
 	ocv = raw->last_good_ocv_uv;
 	pc = calculate_pc(chip, ocv, batt_temp, chargecycles);
 	pr_debug("ocv = %d pc = %d\n", ocv, pc);
+#ifdef CONFIG_LGE_PM
+	global_pc_soc = pc; /* [LGE_UPDATE_S for BMS level tuning] */
+#endif
 	return (fcc_uah * pc) / 100;
 }
 
@@ -1480,7 +1522,6 @@ static void calculate_soc_params(struct pm8921_bms_chip *chip,
 	pr_debug("FCC = %uuAh batt_temp = %d, cycles = %d\n",
 					*fcc_uah, batt_temp, chargecycles);
 
-
 	/* calculate remainging charge */
 	*remaining_charge_uah = calculate_remaining_charge_uah(chip, raw,
 					*fcc_uah, batt_temp, chargecycles);
@@ -1496,9 +1537,25 @@ static void calculate_soc_params(struct pm8921_bms_chip *chip,
 	soc_rbatt = ((*remaining_charge_uah - *cc_uah) * 100) / *fcc_uah;
 	if (soc_rbatt < 0)
 		soc_rbatt = 0;
+#ifdef CONFIG_LGE_PM
+	/* [LGE_UPDATE_S for BMS level tuning] */
+	if(bms_calc_count < BMS_CALC_THRESHOLD_COUNT && bms_calc_count != -1)
+		*rbatt = 182;
+	else
+	    *rbatt = get_rbatt(chip, soc_rbatt, batt_temp);
+	/* [LGE_UPDATE_E for BMS level tuning] */
+#else
 	*rbatt = get_rbatt(chip, soc_rbatt, batt_temp);
+#endif
 
 	calculate_iavg_ua(chip, *cc_uah, iavg_ua, delta_time_s);
+
+#ifdef CONFIG_LGE_PM
+	/* [LGE_UPDATE_S for BMS level tuning] */
+	if(bms_calc_count < BMS_CALC_THRESHOLD_COUNT && bms_calc_count != -1)
+		*iavg_ua = 300000;
+	/* [LGE_UPDATE_E for BMS level tuning] */
+#endif
 
 	*unusable_charge_uah = calculate_unusable_charge_uah(chip, *rbatt,
 					*fcc_uah, *cc_uah, soc_rbatt,
@@ -1762,6 +1819,30 @@ static int adjust_soc(struct pm8921_bms_chip *chip, int soc,
 	}
 
 
+#ifdef CONFIG_LGE_PM
+	if (ibat_ua < 0)
+	{
+	    /* [LGE_UPDATE_S for BMS level tuning] */
+	    if(bms_calc_count < BMS_CALC_THRESHOLD_COUNT && bms_calc_count != -1)
+	    {
+	        if((abs(global_pc_soc - soc) > 5) && global_pc_soc > 10)
+			  soc = global_pc_soc;
+	    }
+		/* [LGE_UPDATE_E for BMS level tuning] */
+		goto out;
+	}
+#else
+	if (ibat_ua < 0)
+		goto out;
+#endif
+
+#ifdef CONFIG_LGE_PM
+	printk(KERN_INFO "=========== IBAT = %d =================\n", ibat_ua);
+    /* [LGE_UPDATE_S for BMS level tuning] */
+	if(bms_calc_count < BMS_CALC_THRESHOLD_COUNT && bms_calc_count != -1)
+		ibat_ua = 300000;
+	/* [LGE_UPDATE_E for BMS level tuning] */
+#endif
 	delta_ocv_uv_limit = DIV_ROUND_CLOSEST(ibat_ua, 1000);
 
 	ocv_est_uv = vbat_uv + (ibat_ua * rbatt)/1000;
@@ -2049,6 +2130,30 @@ static int is_recharging(struct pm8921_bms_chip *chip, int soc)
 	return 0;
 }
 
+#ifdef LGE_REPORT_SOC_ONE
+/*
+* Last safe code for low volt under 5%.
+*/
+
+#define CUTOFF_SET		(3350000)
+int LGE_Report_ONE(struct pm8921_bms_chip *chip, int SoC)
+{
+	static int vbatt_uV = 0;
+	static int usb_chg = 0;
+	get_battery_uvolts(chip, &vbatt_uV);
+
+	if ( vbatt_uV  > CUTOFF_SET)
+		return SoC;
+
+	usb_chg = usb_chg_plugged_in();
+
+	pr_debug("vbatt = %d usb_chg = %d\n",vbatt_uV, usb_chg);
+	if(usb_chg)
+		return 0;//1; When charging do not work 1%
+	else
+		return 1;
+}
+#endif
 /*
  * Remaining Usable Charge = remaining_charge (charge at ocv instance)
  *				- coloumb counter charge
@@ -2071,6 +2176,9 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	int new_rbatt;
 	int shutdown_soc;
 	static int firsttime = 1;
+#ifdef CONFIG_LGE_PM
+	int chg_cable; /* [LGE_UPDATE for preventing the plus SoC gauging] */
+#endif
 
 	calculate_soc_params(chip, raw, batt_temp, chargecycles,
 						&fcc_uah,
@@ -2085,7 +2193,6 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	remaining_usable_charge_uah = remaining_charge_uah
 					- cc_uah
 					- unusable_charge_uah;
-
 	pr_debug("RUC = %duAh\n", remaining_usable_charge_uah);
 	if (fcc_uah - unusable_charge_uah <= 0) {
 		pr_warn("FCC = %duAh, UUC = %duAh forcing soc = 0\n",
@@ -2201,6 +2308,18 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 
 	pr_debug("calculated SOC = %d\n", calculated_soc);
 	firsttime = 0;
+#ifdef CONFIG_LGE_PM
+    /* [LGE_UPDATE_S for preventing the plus SoC gauging] */
+	chg_cable = usb_chg_plugged_in();
+	if(!chg_cable && prev_calculated_soc != -EINVAL)
+	{
+	  if(prev_calculated_soc < calculated_soc)
+	  	calculated_soc = prev_calculated_soc;
+	}
+
+	prev_calculated_soc = calculated_soc;
+	/* [LGE_UPDATE_E for preventing the plus SoC gauging] */
+#endif
 	return calculated_soc;
 }
 
@@ -2223,7 +2342,15 @@ static void calculate_soc_work(struct work_struct *work)
 	}
 	pr_debug("batt_temp phy = %lld meas = 0x%llx\n", result.physical,
 						result.measurement);
-	batt_temp = (int)result.physical;
+#ifdef CONFIG_LGE_PM
+	if(bms_calc_count < BMS_CALC_THRESHOLD_COUNT && bms_calc_count != -1)
+		batt_temp = 250;
+	else
+#endif
+	    batt_temp = (int)result.physical;
+#ifdef CONFIG_LGE_PM
+	pr_info("=========== batt temp = %d =================\n", batt_temp);
+#endif
 
 	mutex_lock(&chip->last_ocv_uv_mutex);
 	read_soc_params_raw(chip, &raw);
@@ -2242,6 +2369,13 @@ static void calculate_soc_work(struct work_struct *work)
 	schedule_delayed_work(&chip->calculate_soc_delayed_work,
 			round_jiffies_relative(msecs_to_jiffies
 			(CALCULATE_SOC_MS)));
+#ifdef CONFIG_LGE_PM
+    /* [LGE_UPDATE_S for BMS level tuning] */
+	bms_calc_count++;
+	if(bms_calc_count == BMS_CALC_THRESHOLD_COUNT)
+		bms_calc_count = 99;
+	/* [LGE_UPDATE_E for BMS level tuning] */
+#endif
 }
 
 static int report_state_of_charge(struct pm8921_bms_chip *chip)
@@ -2252,6 +2386,10 @@ static int report_state_of_charge(struct pm8921_bms_chip *chip)
 	struct pm8xxx_adc_chan_result result;
 	int batt_temp;
 	int rc;
+#ifdef CONFIG_LGE_PM
+	/* soc rescaling for 98 */
+	int rescaling_soc = 0;
+#endif
 
 	rc = pm8xxx_adc_read(the_chip->batt_temp_channel, &result);
 	if (rc) {
@@ -2321,9 +2459,31 @@ static int report_state_of_charge(struct pm8921_bms_chip *chip)
 	backup_soc_and_iavg(chip, batt_temp, last_soc);
 	pr_debug("Reported SOC = %d\n", last_soc);
 	chip->t_soc_queried = now;
+#ifdef CONFIG_LGE_PM
+	/* soc rescaling for 98 */
+	rescaling_soc = (last_soc*100/97);
+
+	if(last_soc == 97) rescaling_soc = 99;
+
+	pr_debug("rescaling_soc = %d\n",rescaling_soc);
+
+	if(rescaling_soc > 100)
+		rescaling_soc = 100;
+
+#ifdef LGE_REPORT_SOC_ONE
+	if(rescaling_soc <= 5 )
+		return LGE_Report_ONE(chip,rescaling_soc);
+#endif
+                
+	/* soc rescaling for 98 */
+	chip->last_reported_soc = rescaling_soc;
+
+	return rescaling_soc;
+#else
 	chip->last_reported_soc = last_soc;
 
 	return last_soc;
+#endif
 }
 
 void pm8921_bms_invalidate_shutdown_soc(void)
@@ -2498,7 +2658,6 @@ int pm8921_bms_get_battery_current(int *result_ua)
 	return 0;
 }
 EXPORT_SYMBOL(pm8921_bms_get_battery_current);
-
 int pm8921_bms_get_percent_charge(void)
 {
 	if (!the_chip) {
@@ -2893,7 +3052,11 @@ static void check_initial_ocv(struct pm8921_bms_chip *chip)
 	usb_chg = usb_chg_plugged_in(chip);
 
 	rc = convert_vbatt_raw_to_uv(chip, usb_chg, ocv_raw, &ocv_uv);
+#if defined(CONFIG_MACH_APQ8064_J1D)|| defined(CONFIG_MACH_APQ8064_J1KD)
+	if (rc || ocv_uv < 1500000) {
+#else
 	if (rc || ocv_uv == 0) {
+#endif
 		rc = adc_based_ocv(chip, &ocv_uv);
 		if (rc) {
 			pr_err("failed to read adc based ocv_uv rc = %d\n", rc);
@@ -2934,6 +3097,14 @@ static int set_battery_data(struct pm8921_bms_chip *chip)
 		goto palladium;
 	else if (chip->batt_type == BATT_LGE)
 		goto lge;
+#ifdef CONFIG_LGE_PM
+	else if (chip->batt_type == BATT_1900_LGE)
+		goto batt_1900_lge;
+	else if (chip->batt_type == BATT_2100_LGE)
+		goto batt_2100_lge;
+	else if (chip->batt_type == BATT_2200_LGE)
+		goto batt_2200_lge;
+#endif
 
 	battery_id = read_battery_id(chip);
 	if (battery_id < 0) {
@@ -2973,6 +3144,7 @@ desay:
 		chip->delta_rbatt_mohm = desay_5200_data.delta_rbatt_mohm;
 		return 0;
 lge:
+#ifdef CONFIG_MACH_APQ8064_MAKO
 		chip->fcc = lge_2100_mako_data.fcc;
 		chip->fcc_temp_lut = lge_2100_mako_data.fcc_temp_lut;
 		chip->fcc_sf_lut = lge_2100_mako_data.fcc_sf_lut;
@@ -2982,7 +3154,59 @@ lge:
 		chip->default_rbatt_mohm
 				= lge_2100_mako_data.default_rbatt_mohm;
 		chip->delta_rbatt_mohm = lge_2100_mako_data.delta_rbatt_mohm;
+#else
+		chip->fcc = lge_1900_data.fcc;
+		chip->fcc_temp_lut = lge_1900_data.fcc_temp_lut;
+		chip->fcc_sf_lut = lge_1900_data.fcc_sf_lut;
+		chip->pc_temp_ocv_lut = lge_1900_data.pc_temp_ocv_lut;
+		chip->pc_sf_lut = lge_1900_data.pc_sf_lut;
+		chip->rbatt_sf_lut = lge_1900_data.rbatt_sf_lut;
+#ifdef CONFIG_LGE_PM
+		chip->delta_rbatt_mohm = lge_1900_data.delta_rbatt_mohm;
+#endif
+		chip->default_rbatt_mohm
+				= lge_1900_data.default_rbatt_mohm;
+#endif
 		return 0;
+
+#ifdef CONFIG_LGE_PM
+batt_1900_lge:
+		chip->fcc = lge_1840_data.fcc;
+		chip->fcc_temp_lut = lge_1840_data.fcc_temp_lut;
+		chip->fcc_sf_lut = lge_1840_data.fcc_sf_lut;
+		chip->pc_temp_ocv_lut = lge_1840_data.pc_temp_ocv_lut;
+		chip->pc_sf_lut = lge_1840_data.pc_sf_lut;
+		chip->rbatt_sf_lut = lge_1840_data.rbatt_sf_lut;
+		chip->delta_rbatt_mohm = lge_1840_data.delta_rbatt_mohm;
+		chip->default_rbatt_mohm
+				= lge_1840_data.default_rbatt_mohm;
+		return 0;
+
+batt_2100_lge:
+		chip->fcc = LGE_2100_PMH_data.fcc;
+		chip->fcc_temp_lut = LGE_2100_PMH_data.fcc_temp_lut;
+		chip->fcc_sf_lut = LGE_2100_PMH_data.fcc_sf_lut;
+		chip->pc_temp_ocv_lut = LGE_2100_PMH_data.pc_temp_ocv_lut;
+		chip->pc_sf_lut = LGE_2100_PMH_data.pc_sf_lut;
+		chip->rbatt_sf_lut = LGE_2100_PMH_data.rbatt_sf_lut;
+		chip->delta_rbatt_mohm = LGE_2100_PMH_data.delta_rbatt_mohm;
+		chip->default_rbatt_mohm
+				= LGE_2100_PMH_data.default_rbatt_mohm;
+		return 0;
+
+batt_2200_lge:
+		chip->fcc = LGE_2200_PMH_data.fcc;
+		chip->fcc_temp_lut = LGE_2200_PMH_data.fcc_temp_lut;
+		chip->fcc_sf_lut = LGE_2200_PMH_data.fcc_sf_lut;
+		chip->pc_temp_ocv_lut = LGE_2200_PMH_data.pc_temp_ocv_lut;
+		chip->pc_sf_lut = LGE_2200_PMH_data.pc_sf_lut;
+		chip->rbatt_sf_lut = LGE_2200_PMH_data.rbatt_sf_lut;
+		chip->delta_rbatt_mohm = LGE_2200_PMH_data.delta_rbatt_mohm;
+		chip->default_rbatt_mohm
+				= LGE_2200_PMH_data.default_rbatt_mohm;
+		return 0;
+#endif
+
 }
 
 enum bms_request_operation {
@@ -3199,6 +3423,13 @@ static void create_debugfs_entries(struct pm8921_bms_chip *chip)
 	debugfs_create_file("BMS_TEST1", 0644, chip->dent,
 			(void *)BMS_TEST1, &reg_fops);
 
+#ifdef LGE_BMS_DEBUG
+	/* LGE_S jungshik.park@lge.com 2012-04-14 debug OCV update currnet limit*/
+	debugfs_create_file("BMS_OCV_UPDATE_CURRENT_LIMIT", 0644, chip->dent,
+			(void *)BMS_OCV_UPDATE_CURRENT_LIMIT, &reg_fops);
+	/* LGE_E jungshik.park@lge.com 2012-04-14 debug OCV update currnet limit*/
+#endif
+
 	debugfs_create_file("test_batt_temp", 0644, chip->dent,
 				(void *)TEST_BATT_TEMP, &temp_fops);
 	debugfs_create_file("test_chargecycle", 0644, chip->dent,
@@ -3308,7 +3539,6 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	struct pm8921_bms_chip *chip;
 	const struct pm8921_bms_platform_data *pdata
 				= pdev->dev.platform_data;
-
 	if (!pdata) {
 		pr_err("missing platform data\n");
 		return -EINVAL;
@@ -3319,7 +3549,6 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 		pr_err("Cannot allocate pm_bms_chip\n");
 		return -ENOMEM;
 	}
-
 	mutex_init(&chip->bms_output_lock);
 	mutex_init(&chip->last_ocv_uv_mutex);
 	chip->dev = &pdev->dev;
@@ -3375,6 +3604,17 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	chip->vbat_at_cv = -EINVAL;
 	chip->first_fixed_iavg_ma = pdata->first_fixed_iavg_ma;
 
+#ifdef LGE_BMS_DEBUG
+	dbg("BMS initial data...\n");
+	dbg("r_sense = %d\n", chip->r_sense);
+	dbg("v_failure = %d\n", chip->v_cutoff);
+	dbg("max_voltage_uv = %d\n", chip->max_voltage_uv);
+	dbg("batt_type = %d\n", chip->batt_type);
+	dbg("revision = 0x%x\n", chip->revision);
+	dbg("default rbatt = %d\n", chip->default_rbatt_mohm);
+	dbg("rconn_mohm = %d\n", chip->rconn_mohm);
+#endif
+
 	mutex_init(&chip->calib_mutex);
 	INIT_WORK(&chip->calib_hkadc_work, calibrate_hkadc_work);
 	INIT_DELAYED_WORK(&chip->calib_hkadc_delayed_work,
@@ -3407,6 +3647,9 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 		goto free_irqs;
 	}
 	check_initial_ocv(chip);
+#ifdef LGE_BMS_DEBUG
+	dbg("ocv battery = %d\n", chip->last_ocv_uv);
+#endif
 
 	/* start periodic hkadc calibration */
 	schedule_delayed_work(&chip->calib_hkadc_delayed_work, 0);

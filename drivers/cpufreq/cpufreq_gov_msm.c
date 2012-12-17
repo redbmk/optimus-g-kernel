@@ -169,8 +169,15 @@ static struct platform_driver msm_gov_driver = {
 	},
 };
 
+#if defined(CONFIG_MACH_LGE)
+int __init cpufreq_gov_msm_init(void)
+#else
 static int __init cpufreq_gov_msm_init(void)
+#endif
 {
 	return platform_driver_register(&msm_gov_driver);
 }
+
+#if !defined(CONFIG_MACH_LGE)
 late_initcall(cpufreq_gov_msm_init);
+#endif

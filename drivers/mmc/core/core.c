@@ -1323,8 +1323,15 @@ void mmc_power_up(struct mmc_host *host)
 	 * This delay must be at least 74 clock sizes, or 1 ms, or the
 	 * time required to reach a stable voltage.
 	 */
+#ifdef CONFIG_MACH_LGE
+	/* LGE_CHANGE
+	 * Augmenting delay-time for some crappy card.
+	 * 2012-06-19, bonkang.koo@lge.com
+	 */
+	mmc_delay(20);
+#else
 	mmc_delay(10);
-
+#endif
 	mmc_host_clk_release(host);
 }
 

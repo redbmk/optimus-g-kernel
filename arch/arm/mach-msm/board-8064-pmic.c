@@ -313,6 +313,7 @@ static struct pm8xxx_adc_amux apq8064_pm8921_adc_channels_data[] = {
 		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
 	{"xo_therm", CHANNEL_MUXOFF, CHAN_PATH_SCALING1, AMUX_RSV0,
 		ADC_DECIMATION_TYPE2, ADC_SCALE_XOTHERM},
+/* Add APQ THERM configuration to read from AMUX3 */
 };
 
 static struct pm8xxx_adc_properties apq8064_pm8921_adc_data = {
@@ -465,6 +466,7 @@ void __init apq8064_init_pmic(void)
 
 	if (machine_is_apq8064_mtp()) {
 		apq8064_pm8921_bms_pdata.battery_type = BATT_PALLADIUM;
+		apq8064_pm8921_adc_pdata.apq_therm = true;
 	} else if (machine_is_apq8064_liquid()) {
 		apq8064_pm8921_bms_pdata.battery_type = BATT_DESAY;
 	}

@@ -229,10 +229,11 @@ int mdp4_overlay_iommu_map_buf(int mem_id,
 	pr_debug("mixer %u, pipe %u, plane %u\n", pipe->mixer_num,
 		pipe->pipe_ndx, plane);
 	if (ion_map_iommu(display_iclient, *srcp_ihdl,
-		DISPLAY_READ_DOMAIN, GEN_POOL, SZ_4K, 0, start,
+		DISPLAY_READ_DOMAIN, GEN_POOL, SZ_4K, size, start,
 		len, 0, ION_IOMMU_UNMAP_DELAYED)) {
 		ion_free(display_iclient, *srcp_ihdl);
-		pr_err("ion_map_iommu() failed\n");
+		pr_err("%s(): ion_map_iommu() failed\n",
+			__func__);
 		return -EINVAL;
 	}
 
@@ -300,6 +301,9 @@ void mdp4_iommu_unmap(struct mdp4_overlay_pipe *pipe)
 		iom_pipe_info->mark_unmap = 0;
 	}
 }
+#if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT)
+static int panel_rotate_180 = 1;
+#endif
 
 int mdp4_overlay_mixer_play(int mixer_num)
 {
@@ -701,6 +705,26 @@ void mdp4_overlay_rgb_setup(struct mdp4_overlay_pipe *pipe)
 	mask = 0xFFFEFFFF;
 	pipe->op_mode = (pipe->op_mode & mask) | (curr & ~mask);
 
+#if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT)
+	if(pipe->mfd->panel_info.type != DTV_PANEL)
+	{
+		if (panel_rotate_180 && (pipe->pipe_num == OVERLAY_PIPE_RGB1 || pipe->pipe_num == OVERLAY_PIPE_RGB2))
+		{
+			uint32 op_mode = pipe->op_mode | MDP4_OP_FLIP_UD | MDP4_OP_SCALEY_EN;
+
+			if (pipe->ext_flag & MDP_FLIP_UD)
+				op_mode &= ~MDP4_OP_FLIP_UD;
+
+			pipe->op_mode = op_mode;
+		}
+
+		if ((pipe->op_mode & MDP4_OP_FLIP_UD) && pipe->mfd)
+			dst_xy = (((pipe->mfd->panel_info.yres - pipe->dst_y - pipe->dst_h) << 16) | pipe->dst_x);
+	}
+
+	if (!pipe->mfd)
+		pr_err("rgb mfd is not set\n");
+#endif
 	outpdw(rgb_base + 0x0000, src_size);	/* MDP_RGB_SRC_SIZE */
 	outpdw(rgb_base + 0x0004, src_xy);	/* MDP_RGB_SRC_XY */
 	outpdw(rgb_base + 0x0008, dst_size);	/* MDP_RGB_DST_SIZE */
@@ -854,6 +878,30 @@ void mdp4_overlay_vg_setup(struct mdp4_overlay_pipe *pipe)
 		}
 	}
 
+
+#if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT)
+	if(pipe->mfd->panel_info.type != DTV_PANEL)
+	{
+		if (panel_rotate_180)
+		{
+			uint32 op_mode = pipe->op_mode | MDP4_OP_FLIP_UD;
+
+			if (pipe->ext_flag & MDP_FLIP_UD)
+				op_mode &= ~MDP4_OP_FLIP_UD;
+
+			pipe->op_mode = op_mode;
+		}
+
+		if ((pipe->op_mode & MDP4_OP_FLIP_UD) && pipe->mfd)
+		{
+			dst_xy = (((pipe->mfd->panel_info.yres - pipe->dst_y - pipe->dst_h) << 16) | pipe->dst_x);
+			outpdw(MDP_BASE + 0xE0044, 0xe0fff);
+		}
+	}
+
+	if (!pipe->mfd)
+		pr_err("vg  mfd is not set\n");
+#endif
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 
 	outpdw(vg_base + 0x0000, src_size);	/* MDP_RGB_SRC_SIZE */
@@ -874,6 +922,25 @@ void mdp4_overlay_vg_setup(struct mdp4_overlay_pipe *pipe)
 		mdp4_overlay_vg_get_src_offset(pipe, vg_base, &luma_offset,
 			&chroma_offset);
 	}
+
+	/* Ensure proper covert matrix loaded when color space swaps */
+	curr = inpdw(vg_base + 0x0058);
+	mask = 0x600;
+	if ((curr & mask) != (pipe->op_mode & mask)) {
+		if (pipe->mfd->wait4idle)
+			pipe->mfd->wait4idle(pipe->mfd);
+		addr = ((uint32_t)vg_base) + 0x4000;
+		if (ptype != OVERLAY_TYPE_RGB)
+			mdp4_csc_write(&(mdp_csc_convert[1]), addr);
+		//else
+			//mdp4_csc_write(&(mdp_csc_convert[0]), addr);
+
+		mask = 0xFFFCFFFF;
+	} else {
+		/* Don't touch bits you don't want to configure*/
+		mask = 0xFFFCF1FF;
+	}
+	pipe->op_mode = (pipe->op_mode & mask) | (curr & ~mask);
 
 	/* luma component plane */
 	outpdw(vg_base + 0x0010, pipe->srcp0_addr + luma_offset);
@@ -905,6 +972,15 @@ void mdp4_overlay_vg_setup(struct mdp4_overlay_pipe *pipe)
 	if (pipe->op_mode & MDP4_OP_DITHER_EN) {
 		outpdw(vg_base + 0x0068,
 			pipe->r_bit << 4 | pipe->b_bit << 2 | pipe->g_bit);
+	}
+
+	if (pipe->flags & MDP_SHARPENING) {
+		outpdw(vg_base + 0x8200,
+			mdp4_ss_table_value(pipe->req_data.dpp.sharp_strength,
+									0));
+		outpdw(vg_base + 0x8204,
+			mdp4_ss_table_value(pipe->req_data.dpp.sharp_strength,
+									1));
 	}
 
 	if (mdp_rev > MDP_REV_41) {
@@ -2322,6 +2398,9 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 		return -ENOMEM;
 	}
 
+#if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT)
+		pipe->mfd = mfd;
+#endif
 	if (!display_iclient && !IS_ERR_OR_NULL(mfd->iclient)) {
 		display_iclient = mfd->iclient;
 		pr_debug("%s(): display_iclient %p\n", __func__,
@@ -2363,6 +2442,9 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 	pipe->dst_x = req->dst_rect.x & 0x07ff;
 
 	pipe->op_mode = 0;
+#if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT)
+	pipe->ext_flag = req->flags;
+#endif
 
 	if (req->flags & MDP_FLIP_LR)
 		pipe->op_mode |= MDP4_OP_FLIP_LR;
@@ -3373,6 +3455,10 @@ int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req)
 			mdp4_dtv_pipe_queue(0, pipe);/* cndx = 0 */
 	}
 
+#if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT)
+	pipe->mfd = mfd;
+#endif
+
 	mutex_unlock(&mfd->dma->ov_mutex);
 	return ret;
 
@@ -3556,6 +3642,7 @@ void mdp4_iommu_attach(void)
 			}
 		}
 		done = 1;
+		pr_debug("Attached MDP IOMMU device\n");
 	}
 }
 

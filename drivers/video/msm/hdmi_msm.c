@@ -786,8 +786,14 @@ static void hdmi_msm_hpd_state_work(struct work_struct *work)
 	DEV_DBG("%s:Got interrupt\n", __func__);
 	/* HPD_INT_STATUS[0x0250] */
 	hpd_state = (HDMI_INP(0x0250) & 0x2) >> 1;
+#ifdef CONFIG_MACH_LGE
+	/* change lock sequence to avoid dead-lock */
+	mutex_lock(&hdmi_msm_state_mutex);
+	mutex_lock(&external_common_state_hpd_mutex);
+#else	/* QCT origin */
 	mutex_lock(&external_common_state_hpd_mutex);
 	mutex_lock(&hdmi_msm_state_mutex);
+#endif
 	if ((external_common_state->hpd_state != hpd_state) || (hdmi_msm_state->
 			hpd_prev_state != external_common_state->hpd_state)) {
 		external_common_state->hpd_state = hpd_state;
@@ -876,6 +882,10 @@ static void hdmi_msm_hpd_state_work(struct work_struct *work)
 			DEV_INFO("HDMI HPD: DISCONNECTED: send OFFLINE\n");
 			kobject_uevent(external_common_state->uevent_kobj,
 				KOBJ_OFFLINE);
+
+			// QCT patch of 00954596 to update connecting status after disconnect to 3D_TV start
+			external_common_state->present_3d = 0;
+			// QCT patch of 00954596 to update connecting status after disconnect to 3D_TV end
 		}
 	}
 
@@ -1150,6 +1160,9 @@ static irqreturn_t hdmi_msm_isr(int irq, void *dev_id)
 
 		/* Clear AUTH_FAIL_INFO as well */
 		HDMI_OUTP(0x0118, (hdcp_int_val | (1 << 7)));
+#ifdef CONFIG_MACH_LGE /*Solve dtv_off called during HDCP authentification*/
+		complete_all(&hdmi_msm_state->hdcp_success_done);
+#endif
 		return IRQ_HANDLED;
 	}
 	/*    [8] DDC_XFER_REQ_INT	[R]	HDCP DDC Transfer Request
@@ -2395,6 +2408,9 @@ static int hdcp_authentication_part1(void)
 	uint32 link0_an_0, link0_an_1;
 	uint32 hpd_int_status, hpd_int_ctrl;
 
+#ifdef CONFIG_MACH_LGE /* Solve the HW Reset that occurs due to dtv_on/off during HDCP Auth.*/
+	extern int  mdp4_dtv_start_status;
+#endif
 
 	static uint8 buf[0xFF];
 	memset(buf, 0, sizeof(buf));
@@ -2508,7 +2524,12 @@ static int hdcp_authentication_part1(void)
 		/* wait for an0 and an1 ready bits to be set in LINK0_STATUS */
 
 		mutex_lock(&hdcp_auth_state_mutex);
-		timeout_count = 100;
+#ifdef CONFIG_MACH_LGE
+/* Solve the HW Reset that occurs due to dtv_on/off during HDCP Auth.*/
+		timeout_count = 10; /*QCT Recommeend value : 10*/
+#else
+		timeout_count = 100; /* QCT Original */
+#endif
 		while (((HDMI_INP_ND(0x011C) & (0x3 << 8)) != (0x3 << 8))
 			&& timeout_count--)
 			msleep(20);
@@ -2522,6 +2543,12 @@ static int hdcp_authentication_part1(void)
 			goto error;
 		}
 
+#ifdef CONFIG_MACH_LGE /* Solve the HW Reset that occurs due to dtv_on/off during HDCP Auth.*/
+		if(!mdp4_dtv_start_status){
+			mutex_unlock(&hdcp_auth_state_mutex);
+			goto error;
+		}
+#endif
 		/* 0x0168 HDCP_RCVPORT_DATA12
 		   [23:8] BSTATUS
 		   [7:0] BCAPS */
@@ -3067,6 +3094,9 @@ static void hdmi_msm_hdcp_enable(void)
 	hdmi_msm_state->full_auth_done = TRUE;
 	mutex_unlock(&hdcp_auth_state_mutex);
 
+#ifdef CONFIG_MACH_LGE /* Solve dtv_off called during HDCP authentification*/
+	complete(&hdmi_msm_state->hdcp_activation_done);
+#endif
 	if (!hdmi_msm_is_dvi_mode()) {
 		DEV_INFO("HDMI HPD: sense : send HDCP_PASS\n");
 		envp[0] = "HDCP_STATE=PASS";
@@ -3097,7 +3127,9 @@ error:
 		mutex_unlock(&hdcp_auth_state_mutex);
 	} else {
 		DEV_WARN("[DEV_DBG]: Calling reauth from [%s]\n", __func__);
+#ifndef CONFIG_MACH_LGE /* Solve panal power 0 during HDCP Re-auth */
 		if (hdmi_msm_state->panel_power_on)
+#endif
 			queue_work(hdmi_work_queue,
 			    &hdmi_msm_state->hdcp_reauth_work);
 	}
@@ -3105,6 +3137,9 @@ error:
 	switch_set_state(&external_common_state->saudiodev, 0);
 	DEV_INFO("hdmi_audio state switched to %d: %s\n",
 		external_common_state->saudiodev.state,  __func__);
+#ifdef CONFIG_MACH_LGE /* Solve dtv_off called during HDCP authentification*/
+	complete(&hdmi_msm_state->hdcp_activation_done);
+#endif
 	switch_set_state(&external_common_state->sdev, 0);
 	DEV_INFO("Hdmi state switched to %d: %s\n",
 		external_common_state->sdev.state, __func__);
@@ -3695,8 +3730,14 @@ static uint8 hdmi_msm_avi_iframe_lut[][16] = {
 	 0x10,	0x10,	0x10,	0x10,	0x10, 0x10, 0x10}, /*00*/
 	{0x18,	0x18,	0x28,	0x28,	0x28,	 0x28,	0x28,	0x28,	0x28,
 	 0x28,	0x28,	0x28,	0x28,	0x18, 0x28, 0x18}, /*01*/
+ /*  QCT patch to fix avi information frame issue for MHL compliance test */
+#ifdef CONFIG_MACH_LGE
+	{0x00,  0x00,   0x00,   0x00,   0x00,    0x00,  0x00,   0x00,   0x00,
+	 0x00,  0x00,   0x00,   0x00,   0x00, 0x00, 0x00}, /*02*/
+#else
 	{0x00,	0x04,	0x04,	0x04,	0x04,	 0x04,	0x04,	0x04,	0x04,
 	 0x04,	0x04,	0x04,	0x04,	0x88, 0x00, 0x04}, /*02*/
+#endif
 	{0x02,	0x06,	0x11,	0x15,	0x04,	 0x13,	0x10,	0x05,	0x1F,
 	 0x14,	0x20,	0x22,	0x21,	0x01, 0x03, 0x11}, /*03*/
 	{0x00,	0x01,	0x00,	0x01,	0x00,	 0x00,	0x00,	0x00,	0x00,
@@ -4358,6 +4399,7 @@ static int hdmi_msm_power_ctrl(boolean enable)
 {
 	int rc = 0;
 
+#ifndef CONFIG_MACH_LGE
 	if (enable) {
 		/*
 		 * Enable HPD only if the UI option is on or if
@@ -4372,6 +4414,7 @@ static int hdmi_msm_power_ctrl(boolean enable)
 		DEV_DBG("%s: Turning HPD ciruitry off\n", __func__);
 		hdmi_msm_hpd_off();
 	}
+#endif //CONFIG_MACH_LGE
 
 	return rc;
 }
@@ -4487,6 +4530,14 @@ static int hdmi_msm_power_off(struct platform_device *pdev)
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
 	mutex_lock(&hdmi_msm_state_mutex);
 	if (hdmi_msm_state->hdcp_activating) {
+#ifdef CONFIG_MACH_LGE /* Solve dtv_off called during HDCP authentification*/
+		INIT_COMPLETION(hdmi_msm_state->hdcp_activation_done);
+		DEV_INFO("HDCP: activating, waiting %s\n",__func__);
+		mutex_unlock(&hdmi_msm_state_mutex);
+		wait_for_completion_interruptible_timeout(&hdmi_msm_state->hdcp_activation_done,3*HZ);
+		hdmi_msm_state->reauth = TRUE;
+		mutex_lock(&hdmi_msm_state_mutex);
+#endif
 		hdmi_msm_state->panel_power_on = FALSE;
 		mutex_unlock(&hdmi_msm_state_mutex);
 		DEV_INFO("HDCP: activating, returning\n");
@@ -4501,6 +4552,13 @@ static int hdmi_msm_power_off(struct platform_device *pdev)
 	hdcp_deauthenticate();
 #endif
 	hdmi_msm_powerdown_phy();
+
+#ifdef CONFIG_MACH_LGE
+	mutex_lock(&external_common_state_hpd_mutex);
+	if (!external_common_state->hpd_feature_on)   
+		hdmi_msm_hpd_off();
+	mutex_unlock(&external_common_state_hpd_mutex);
+#endif
 
 	hdmi_msm_state->panel_power_on = FALSE;
 	return 0;
@@ -4652,6 +4710,15 @@ static int __devinit hdmi_msm_probe(struct platform_device *pdev)
 		if (rc)
 			goto error;
 	}
+#ifdef CONFIG_MACH_LGE
+	else{
+		hdmi_msm_hpd_on(false);
+		msleep(2);
+		hdmi_msm_hpd_off();
+	}
+#endif
+
+	DEV_INFO("HDMI HPD: ON\n");
 
 	if (hdmi_msm_has_hdcp()) {
 		/* Don't Set Encryption in case of non HDCP builds */
@@ -4816,6 +4883,11 @@ static int __init hdmi_msm_init(void)
 		external_common_state->video_resolution =
 			HDMI_VFRMT_1920x1080p60_16_9;
 
+#ifdef CONFIG_MACH_LGE
+	external_common_state->hpd_feature_on = 0;
+	external_common_state->is_booting = 1;
+#endif
+
 #ifdef CONFIG_FB_MSM_HDMI_3D
 	external_common_state->switch_3d = hdmi_msm_switch_3d;
 #endif
@@ -4857,6 +4929,9 @@ static int __init hdmi_msm_init(void)
 	init_completion(&hdmi_msm_state->ddc_sw_done);
 	INIT_WORK(&hdmi_msm_state->hpd_state_work, hdmi_msm_hpd_state_work);
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
+#ifdef CONFIG_MACH_LGE /* Solve dtv_off called during HDCP authentification*/
+	init_completion(&hdmi_msm_state->hdcp_activation_done);
+#endif
 	init_completion(&hdmi_msm_state->hdcp_success_done);
 	INIT_WORK(&hdmi_msm_state->hdcp_reauth_work, hdmi_msm_hdcp_reauth_work);
 	INIT_WORK(&hdmi_msm_state->hdcp_work, hdmi_msm_hdcp_work);

@@ -513,6 +513,7 @@ static ssize_t hdmi_common_wta_hpd(struct device *dev,
 	else
 		hpd = atoi(buf);
 
+#ifndef CONFIG_MACH_LGE  
 	if (external_common_state->hpd_feature) {
 		if (hpd == 0 && external_common_state->hpd_feature_on) {
 			external_common_state->hpd_feature(0);
@@ -531,6 +532,7 @@ static ssize_t hdmi_common_wta_hpd(struct device *dev,
 	} else {
 		DEV_DBG("%s: 'not supported'\n", __func__);
 	}
+#endif
 
 	return ret;
 }
@@ -884,6 +886,28 @@ static ssize_t hdmi_common_rda_spkr_alloc_data_block(struct device *dev,
 	return ret;
 }
 
+#ifdef CONFIG_MACH_LGE  
+
+/*  to support external display when turning on the device 
+      after connecting the hdmi cable
+*/
+static ssize_t hdmi_common_wta_daemon_ready(struct device *dev,
+								struct device_attribute *attr, const char *buf, size_t count)
+{
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+
+	if(external_common_state->hpd_feature_on && 
+		external_common_state->is_booting){
+		DEV_DBG("%s: hpd_power_on \n",__func__);
+		external_common_state->hpd_feature(1);
+	}
+
+	external_common_state->is_booting = 0;
+	
+	return ret;
+}
+#endif
+
 static DEVICE_ATTR(video_mode, S_IRUGO | S_IWUGO,
 	external_common_rda_video_mode, external_common_wta_video_mode);
 static DEVICE_ATTR(video_mode_str, S_IRUGO, external_common_rda_video_mode_str,
@@ -919,6 +943,10 @@ static DEVICE_ATTR(audio_data_block, S_IRUGO, hdmi_common_rda_audio_data_block,
 static DEVICE_ATTR(spkr_alloc_data_block, S_IRUGO,
 	hdmi_common_rda_spkr_alloc_data_block, NULL);
 
+#ifdef CONFIG_MACH_LGE  
+static DEVICE_ATTR(daemon_ready, S_IWUGO, NULL, hdmi_common_wta_daemon_ready);
+#endif
+
 static struct attribute *external_common_fs_attrs[] = {
 	&dev_attr_video_mode.attr,
 	&dev_attr_video_mode_str.attr,
@@ -948,6 +976,9 @@ static struct attribute *external_common_fs_attrs[] = {
 	&dev_attr_hdmi_primary.attr,
 	&dev_attr_audio_data_block.attr,
 	&dev_attr_spkr_alloc_data_block.attr,
+#ifdef CONFIG_MACH_LGE 
+	&dev_attr_daemon_ready.attr,
+#endif
 	NULL,
 };
 static struct attribute_group external_common_fs_attr_group = {
@@ -2214,4 +2245,43 @@ void hdmi_common_init_panel_info(struct msm_panel_info *pinfo)
 	pinfo->lcdc.hsync_skew = 0;
 }
 EXPORT_SYMBOL(hdmi_common_init_panel_info);
+
+#ifdef CONFIG_MACH_LGE
+
+void hdmi_common_send_uevent(char *buf)
+{
+	char *envp[2];
+	int env_offset = 0;
+
+	envp[env_offset++] = buf;
+	envp[env_offset] = NULL;
+
+	kobject_uevent_env(external_common_state->uevent_kobj, KOBJ_CHANGE, envp);
+}
+EXPORT_SYMBOL(hdmi_common_send_uevent);
+
+void hdmi_common_set_hpd_on(int on)
+{
+	DEV_DBG("%s: hpd [%d]\n", __func__,on);	
+
+   	if (external_common_state->hpd_feature) {
+		if (on) {
+		   if(!external_common_state->is_booting){
+			  DEV_DBG("%s : hpd_power_on \n",__func__);	
+			  external_common_state->hpd_feature(1);
+		   }
+		   external_common_state->hpd_feature_on = 1;
+			
+		} else {
+		    external_common_state->hpd_feature_on = 0;
+	       }
+		
+	} else {
+		DEV_DBG("%s: 'not supported'\n", __func__);
+	}	
+}
+
+EXPORT_SYMBOL(hdmi_common_set_hpd_on);
+
+#endif /* CONFIG_MACH_LGE */
 #endif

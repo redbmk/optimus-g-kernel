@@ -12,6 +12,8 @@
 
 #define pr_fmt(fmt)	"%s: " fmt, __func__
 
+#define Ledlog(x, ...) printk(x, ##__VA_ARGS__)
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/init.h>
@@ -416,8 +418,17 @@ static int pm8xxx_adjust_brightness(struct led_classdev *led_cdev,
 
 static int pm8xxx_led_pwm_pattern_update(struct pm8xxx_led_data * led)
 {
-	int start_idx, idx_len;
+	int start_idx;
+
+#ifdef LGE_PWM_LED
+	int idx_len0, idx_len1;
+	int *pcts0 = NULL;
+	int *pcts1 = NULL;
+#else
+	int idx_len;
 	int *pcts = NULL;
+#endif
+        
 	int i, rc = 0;
 	int temp = 0;
 	int pwm_max = 0;
@@ -450,9 +461,33 @@ static int pm8xxx_led_pwm_pattern_update(struct pm8xxx_led_data * led)
 
 	pwm_max = pm8xxx_adjust_brightness(&led->cdev, led->cdev.brightness);
 	start_idx = led->pwm_duty_cycles->start_idx;
+
+#ifdef LGE_PWM_LED
+	idx_len0 = led->pwm_duty_cycles->num_duty_pcts0;
+	idx_len1 = led->pwm_duty_cycles->num_duty_pcts1;
+	pcts0 = led->pwm_duty_cycles->duty_pcts0;
+	pcts1 = led->pwm_duty_cycles->duty_pcts1;
+#else
 	idx_len = led->pwm_duty_cycles->num_duty_pcts;
 	pcts = led->pwm_duty_cycles->duty_pcts;
+#endif
 
+
+#ifdef LGE_PWM_LED
+	if (led->blink) {
+		int mid = (idx_len - 1) >> 1;
+		for (i = 0; i <= mid; i++) {
+			temp = ((pwm_max * i) << 1) / mid + 1;
+			pcts0[i] = pcts1[i] = temp >> 1;
+			pcts0[idx_len0 - 1 - i] = temp >> 1;
+			pcts1[idx_len1 - 1 - i] = temp >> 1;
+		}
+	} else {
+		for (i = 0; i < idx_len; i++) {
+			pcts0[i] = pcts1[i] = pwm_max;
+		}
+	}
+#else
 	if (led->blink) {
 		int mid = (idx_len - 1) >> 1;
 		for (i = 0; i <= mid; i++) {
@@ -465,7 +500,32 @@ static int pm8xxx_led_pwm_pattern_update(struct pm8xxx_led_data * led)
 			pcts[i] = pwm_max;
 		}
 	}
+#endif
 
+#ifdef LGE_PWM_LED
+	if (idx_len0 >= PM_PWM_LUT_SIZE && start_idx) {
+		pr_err("Wrong LUT size or index\n");
+		return -EINVAL;
+	}
+	if ((start_idx + idx_len0) > PM_PWM_LUT_SIZE) {
+		pr_err("Exceed LUT limit\n");
+		return -EINVAL;
+	}
+	if (idx_len1 >= PM_PWM_LUT_SIZE && start_idx) {
+		pr_err("Wrong LUT size or index\n");
+		return -EINVAL;
+	}
+	if ((start_idx + idx_len1) > PM_PWM_LUT_SIZE) {
+		pr_err("Exceed LUT limit\n");
+		return -EINVAL;
+	}
+
+	rc = pm8xxx_pwm_lut_config(led->pwm_dev, led->pwm_period_us,
+			led->pwm_duty_cycles->duty_pcts0,
+			led->pwm_duty_cycles->duty_ms0,
+			start_idx, idx_len0, led->pwm_pause_lo, led->pwm_pause_hi,
+			PM8XXX_LED_PWM_FLAGS);
+#else
 	if (idx_len >= PM_PWM_LUT_SIZE && start_idx) {
 		pr_err("Wrong LUT size or index\n");
 		return -EINVAL;
@@ -480,6 +540,7 @@ static int pm8xxx_led_pwm_pattern_update(struct pm8xxx_led_data * led)
 			led->pwm_duty_cycles->duty_ms,
 			start_idx, idx_len, led->pwm_pause_lo, led->pwm_pause_hi,
 			PM8XXX_LED_PWM_FLAGS);
+#endif
 
 	return rc;
 }
@@ -585,7 +646,40 @@ static void pm8xxx_led_set(struct led_classdev *led_cdev,
 {
 	struct	pm8xxx_led_data *led;
 
+#ifdef LGE_PWM_LED
+	int idx_len0;
+	int idx_len1;
+#endif
+
 	led = container_of(led_cdev, struct pm8xxx_led_data, cdev);
+
+	Ledlog("LedLog > %s : %d %d\n",__func__, led->id, value);
+		
+	#ifdef LGE_PWM_LED
+	if(led->id == PM8XXX_ID_LED_2 || led->id == PM8XXX_ID_LED_0)
+	{
+		idx_len0 = led->pwm_duty_cycles->num_duty_pcts0;
+		idx_len1 = led->pwm_duty_cycles->num_duty_pcts1;
+
+		if(value == 0xFE) //notification
+		{
+			pm8xxx_pwm_lut_config(led->pwm_dev, led->pwm_period_us,
+				led->pwm_duty_cycles->duty_pcts1,
+				led->pwm_duty_cycles->duty_ms1,
+				0, idx_len1, led->pwm_pause_lo, led->pwm_pause_hi,
+				PM8XXX_LED_PWM_FLAGS);
+			value = led->cdev.max_brightness;
+		}
+		else //charging
+		{
+			pm8xxx_pwm_lut_config(led->pwm_dev, led->pwm_period_us,
+				led->pwm_duty_cycles->duty_pcts0,
+				led->pwm_duty_cycles->duty_ms0,
+				0, idx_len0, led->pwm_pause_lo, led->pwm_pause_hi,
+				PM8XXX_LED_PWM_FLAGS);
+		}
+	}
+	#endif
 
 	if (value < LED_OFF || value > led->cdev.max_brightness) {
 		dev_err(led->cdev.dev, "Invalid brightness value exceeds");

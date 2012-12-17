@@ -27,6 +27,10 @@
 #include <asm/page.h>
 #include <mach/msm_dcvs.h>
 
+#if defined(CONFIG_MACH_LGE)
+int cpufreq_gov_msm_init(void);
+#endif
+
 #define CORE_HANDLE_OFFSET (0xA0)
 #define __err(f, ...) pr_err("MSM_DCVS: %s: " f, __func__, __VA_ARGS__)
 #define __info(f, ...) pr_info("MSM_DCVS: %s: " f, __func__, __VA_ARGS__)
@@ -761,7 +765,9 @@ static int __init msm_dcvs_late_init(void)
 		ret = -ENOMEM;
 		goto err;
 	}
-
+#if defined(CONFIG_MACH_LGE)
+	ret = cpufreq_gov_msm_init();
+#endif
 err:
 	if (ret) {
 		kobject_del(cores_kobj);
@@ -771,8 +777,11 @@ err:
 
 	return ret;
 }
+#if defined(CONFIG_MACH_LGE)
+device_initcall(msm_dcvs_late_init);
+#else
 late_initcall(msm_dcvs_late_init);
-
+#endif
 static int __init msm_dcvs_early_init(void)
 {
 	int ret = 0;

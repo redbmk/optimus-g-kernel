@@ -577,6 +577,7 @@ static struct branch_clk gmem_axi_clk = {
 		.dbg_name = "gmem_axi_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gmem_axi_clk.c),
+		.warned = true,
 	},
 };
 
@@ -595,6 +596,7 @@ static struct branch_clk ijpeg_axi_clk = {
 		.dbg_name = "ijpeg_axi_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(ijpeg_axi_clk.c),
+		.warned = true,
 	},
 };
 
@@ -615,6 +617,7 @@ static struct branch_clk imem_axi_clk = {
 		.dbg_name = "imem_axi_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(imem_axi_clk.c),
+		.warned = true,
 	},
 };
 
@@ -629,6 +632,7 @@ static struct branch_clk jpegd_axi_clk = {
 		.dbg_name = "jpegd_axi_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(jpegd_axi_clk.c),
+		.warned = true,
 	},
 };
 
@@ -647,6 +651,7 @@ static struct branch_clk vcodec_axi_b_clk = {
 		.dbg_name = "vcodec_axi_b_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(vcodec_axi_b_clk.c),
+		.warned = true,
 	},
 };
 
@@ -666,6 +671,7 @@ static struct branch_clk vcodec_axi_a_clk = {
 		.ops = &clk_ops_branch,
 		CLK_INIT(vcodec_axi_a_clk.c),
 		.depends = &vcodec_axi_b_clk.c,
+		.warned = true,
 	},
 };
 
@@ -687,6 +693,7 @@ static struct branch_clk vcodec_axi_clk = {
 		.ops = &clk_ops_branch,
 		CLK_INIT(vcodec_axi_clk.c),
 		.depends = &vcodec_axi_a_clk.c,
+		.warned = true,
 	},
 };
 
@@ -703,6 +710,7 @@ static struct branch_clk vfe_axi_clk = {
 		.dbg_name = "vfe_axi_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(vfe_axi_clk.c),
+		.warned = true,
 	},
 };
 
@@ -723,6 +731,7 @@ static struct branch_clk mdp_axi_clk = {
 		.dbg_name = "mdp_axi_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(mdp_axi_clk.c),
+		.warned = true,
 	},
 };
 
@@ -743,6 +752,7 @@ static struct branch_clk rot_axi_clk = {
 		.dbg_name = "rot_axi_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(rot_axi_clk.c),
+		.warned = true,
 	},
 };
 
@@ -764,6 +774,7 @@ static struct branch_clk vpe_axi_clk = {
 		.dbg_name = "vpe_axi_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(vpe_axi_clk.c),
+		.warned = true,
 	},
 };
 
@@ -782,6 +793,7 @@ static struct branch_clk vcap_axi_clk = {
 		.dbg_name = "vcap_axi_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(vcap_axi_clk.c),
+		.warned = true,
 	},
 };
 
@@ -801,6 +813,7 @@ static struct branch_clk gfx3d_axi_clk = {
 		.dbg_name = "gfx3d_axi_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gfx3d_axi_clk.c),
+		.warned = true,
 	},
 };
 
@@ -834,6 +847,7 @@ static struct branch_clk amp_p_clk = {
 		.dbg_name = "amp_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(amp_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -850,6 +864,7 @@ static struct branch_clk csi_p_clk = {
 		.dbg_name = "csi_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(csi_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -866,6 +881,7 @@ static struct branch_clk dsi1_m_p_clk = {
 		.dbg_name = "dsi1_m_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(dsi1_m_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -884,6 +900,7 @@ static struct branch_clk dsi1_s_p_clk = {
 		.dbg_name = "dsi1_s_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(dsi1_s_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -900,6 +917,7 @@ static struct branch_clk dsi2_m_p_clk = {
 		.dbg_name = "dsi2_m_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(dsi2_m_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -918,6 +936,7 @@ static struct branch_clk dsi2_s_p_clk = {
 		.dbg_name = "dsi2_s_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(dsi2_s_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -937,6 +956,7 @@ static struct branch_clk gfx2d0_p_clk = {
 		.ops = &clk_ops_branch,
 		.flags = CLKFLAG_SKIP_HANDOFF,
 		CLK_INIT(gfx2d0_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -956,6 +976,7 @@ static struct branch_clk gfx2d1_p_clk = {
 		.ops = &clk_ops_branch,
 		.flags = CLKFLAG_SKIP_HANDOFF,
 		CLK_INIT(gfx2d1_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -974,6 +995,7 @@ static struct branch_clk gfx3d_p_clk = {
 		.dbg_name = "gfx3d_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gfx3d_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -992,6 +1014,7 @@ static struct branch_clk hdmi_m_p_clk = {
 		.dbg_name = "hdmi_m_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(hdmi_m_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -1010,6 +1033,7 @@ static struct branch_clk hdmi_s_p_clk = {
 		.dbg_name = "hdmi_s_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(hdmi_s_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -1026,6 +1050,7 @@ static struct branch_clk ijpeg_p_clk = {
 		.dbg_name = "ijpeg_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(ijpeg_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -1044,6 +1069,7 @@ static struct branch_clk imem_p_clk = {
 		.dbg_name = "imem_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(imem_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -1060,6 +1086,7 @@ static struct branch_clk jpegd_p_clk = {
 		.dbg_name = "jpegd_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(jpegd_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -1076,6 +1103,7 @@ static struct branch_clk mdp_p_clk = {
 		.dbg_name = "mdp_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(mdp_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -1092,6 +1120,7 @@ static struct branch_clk rot_p_clk = {
 		.dbg_name = "rot_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(rot_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -1108,6 +1137,7 @@ static struct branch_clk smmu_p_clk = {
 		.dbg_name = "smmu_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(smmu_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -1124,6 +1154,7 @@ static struct branch_clk tv_enc_p_clk = {
 		.dbg_name = "tv_enc_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(tv_enc_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -1142,6 +1173,7 @@ static struct branch_clk vcodec_p_clk = {
 		.dbg_name = "vcodec_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(vcodec_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -1160,6 +1192,7 @@ static struct branch_clk vfe_p_clk = {
 		.dbg_name = "vfe_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(vfe_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -1176,6 +1209,7 @@ static struct branch_clk vpe_p_clk = {
 		.dbg_name = "vpe_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(vpe_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -1194,6 +1228,7 @@ static struct branch_clk vcap_p_clk = {
 		.dbg_name = "vcap_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(vcap_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -1221,6 +1256,7 @@ static struct branch_clk vcap_p_clk = {
 			.ops = &clk_ops_rcg, \
 			VDD_DIG_FMAX_MAP2(LOW, 100000000, NOMINAL, 200000000), \
 			CLK_INIT(i##_clk.c), \
+			.warned = true, \
 		}, \
 	}
 #define F_GP(f, s, d, m, n) \
@@ -1271,6 +1307,7 @@ static CLK_GP(gp2, 2, CLK_HALT_SFPB_MISC_STATE_REG, 5);
 			.ops = &clk_ops_rcg, \
 			VDD_DIG_FMAX_MAP2(LOW, 32000000, NOMINAL, 64000000), \
 			CLK_INIT(i##_clk.c), \
+			.warned = true, \
 		}, \
 	}
 #define F_GSBI_UART(f, s, d, m, n) \
@@ -1335,6 +1372,7 @@ static CLK_GSBI_UART(gsbi12_uart, 12, CLK_HALT_CFPB_STATEC_REG, 13);
 			.ops = &clk_ops_rcg, \
 			VDD_DIG_FMAX_MAP2(LOW, 24000000, NOMINAL, 52000000), \
 			CLK_INIT(i##_clk.c), \
+			.warned = true, \
 		}, \
 	}
 #define F_GSBI_QUP(f, s, d, m, n) \
@@ -1353,6 +1391,7 @@ static struct clk_freq_tbl clk_tbl_gsbi_qup[] = {
 	F_GSBI_QUP(24000000, pll8, 4, 1,  4),
 	F_GSBI_QUP(25600000, pll8, 1, 1, 15),
 	F_GSBI_QUP(27000000, pxo,  1, 0,  0),
+	F_GSBI_QUP(32000000, pll8, 4, 1,  3),
 	F_GSBI_QUP(48000000, pll8, 4, 1,  2),
 	F_GSBI_QUP(51200000, pll8, 1, 2, 15),
 	F_END
@@ -1403,6 +1442,7 @@ static struct rcg_clk pdm_clk = {
 		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(LOW, 27000000),
 		CLK_INIT(pdm_clk.c),
+		.warned = true, 
 	},
 };
 
@@ -1419,6 +1459,7 @@ static struct branch_clk pmem_clk = {
 		.dbg_name = "pmem_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(pmem_clk.c),
+		.warned = true,
 	},
 };
 
@@ -1453,6 +1494,7 @@ static struct rcg_clk prng_clk = {
 		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP2(LOW, 32000000, NOMINAL, 64000000),
 		CLK_INIT(prng_clk.c),
+		.warned = true,
 	},
 };
 
@@ -1479,6 +1521,7 @@ static struct rcg_clk prng_clk = {
 			.ops = &clk_ops_rcg, \
 			VDD_DIG_FMAX_MAP2(LOW, fmax_low, NOMINAL, fmax_nom), \
 			CLK_INIT(name.c), \
+			.warned = true, \
 		}, \
 	}
 #define F_SDC(f, s, d, m, n) \
@@ -1542,6 +1585,7 @@ static struct rcg_clk tsif_ref_clk = {
 		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP2(LOW, 27000000, NOMINAL, 54000000),
 		CLK_INIT(tsif_ref_clk.c),
+		.warned = true,
 	},
 };
 
@@ -1574,6 +1618,7 @@ static struct rcg_clk tssc_clk = {
 		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(LOW, 27000000),
 		CLK_INIT(tssc_clk.c),
+		.warned = true,
 	},
 };
 
@@ -1600,6 +1645,7 @@ static struct rcg_clk tssc_clk = {
 		.ops = &clk_ops_rcg, \
 		VDD_DIG_FMAX_MAP1(NOMINAL, 64000000), \
 		CLK_INIT(name.c), \
+		.warned = true, \
 	}, \
 }
 
@@ -1646,6 +1692,7 @@ static struct rcg_clk usb_hsic_xcvr_fs_clk = {
 		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(LOW, 60000000),
 		CLK_INIT(usb_hsic_xcvr_fs_clk.c),
+		.warned = true,
 	},
 };
 
@@ -1663,6 +1710,7 @@ static struct branch_clk usb_hsic_system_clk = {
 		.dbg_name = "usb_hsic_system_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(usb_hsic_system_clk.c),
+		.warned = true,
 	},
 };
 
@@ -1690,6 +1738,7 @@ static struct rcg_clk usb_hsic_hsic_src_clk = {
 		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(LOW, 480000000),
 		CLK_INIT(usb_hsic_hsic_src_clk.c),
+		.warned = true,
 	},
 };
 
@@ -1705,6 +1754,7 @@ static struct branch_clk usb_hsic_hsic_clk = {
 		.dbg_name = "usb_hsic_hsic_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(usb_hsic_hsic_clk.c),
+		.warned = true,
 	},
 };
 
@@ -1733,6 +1783,7 @@ static struct rcg_clk usb_hsic_hsio_cal_clk = {
 		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(LOW, 10000000),
 		CLK_INIT(usb_hsic_hsio_cal_clk.c),
+		.warned = true,
 	},
 };
 
@@ -1745,6 +1796,7 @@ static struct branch_clk usb_phy0_clk = {
 		.dbg_name = "usb_phy0_clk",
 		.ops = &clk_ops_reset,
 		CLK_INIT(usb_phy0_clk.c),
+		.warned = true,
 	},
 };
 
@@ -1767,6 +1819,7 @@ static struct branch_clk usb_phy0_clk = {
 			.ops = &clk_ops_rcg, \
 			VDD_DIG_FMAX_MAP1(NOMINAL, fmax_nom), \
 			CLK_INIT(i##_clk.c), \
+			.warned = true, \
 		}, \
 	}
 
@@ -1785,6 +1838,7 @@ static struct branch_clk usb_fs1_xcvr_clk = {
 		.dbg_name = "usb_fs1_xcvr_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(usb_fs1_xcvr_clk.c),
+		.warned = true,
 	},
 };
 
@@ -1802,6 +1856,7 @@ static struct branch_clk usb_fs1_sys_clk = {
 		.dbg_name = "usb_fs1_sys_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(usb_fs1_sys_clk.c),
+		.warned = true,
 	},
 };
 
@@ -1820,6 +1875,7 @@ static struct branch_clk usb_fs2_xcvr_clk = {
 		.dbg_name = "usb_fs2_xcvr_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(usb_fs2_xcvr_clk.c),
+		.warned = true,
 	},
 };
 
@@ -1837,6 +1893,7 @@ static struct branch_clk usb_fs2_sys_clk = {
 		.dbg_name = "usb_fs2_sys_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(usb_fs2_sys_clk.c),
+		.warned = true,
 	},
 };
 
@@ -1854,6 +1911,7 @@ static struct branch_clk ce1_core_clk = {
 		.dbg_name = "ce1_core_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(ce1_core_clk.c),
+		.warned = true,
 	},
 };
 
@@ -1868,6 +1926,7 @@ static struct branch_clk ce1_p_clk = {
 		.dbg_name = "ce1_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(ce1_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -1901,6 +1960,7 @@ static struct rcg_clk ce3_src_clk = {
 		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP2(LOW, 50000000, NOMINAL, 100000000),
 		CLK_INIT(ce3_src_clk.c),
+		.warned = true,
 	},
 };
 
@@ -1918,6 +1978,7 @@ static struct branch_clk ce3_core_clk = {
 		.dbg_name = "ce3_core_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(ce3_core_clk.c),
+		.warned = true,
 	}
 };
 
@@ -1935,6 +1996,7 @@ static struct branch_clk ce3_p_clk = {
 		.dbg_name = "ce3_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(ce3_p_clk.c),
+		.warned = true,
 	}
 };
 
@@ -2013,6 +2075,7 @@ static struct branch_clk sata_phy_ref_clk = {
 		.dbg_name = "sata_phy_ref_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(sata_phy_ref_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2068,6 +2131,7 @@ static struct branch_clk pcie_p_clk = {
 		.dbg_name = "pcie_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(pcie_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2112,6 +2176,7 @@ static struct branch_clk dma_bam_p_clk = {
 		.dbg_name = "dma_bam_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(dma_bam_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2128,6 +2193,7 @@ static struct branch_clk gsbi1_p_clk = {
 		.dbg_name = "gsbi1_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gsbi1_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2144,6 +2210,7 @@ static struct branch_clk gsbi2_p_clk = {
 		.dbg_name = "gsbi2_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gsbi2_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2160,6 +2227,7 @@ static struct branch_clk gsbi3_p_clk = {
 		.dbg_name = "gsbi3_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gsbi3_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2176,6 +2244,7 @@ static struct branch_clk gsbi4_p_clk = {
 		.dbg_name = "gsbi4_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gsbi4_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2192,6 +2261,7 @@ static struct branch_clk gsbi5_p_clk = {
 		.dbg_name = "gsbi5_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gsbi5_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2208,6 +2278,7 @@ static struct branch_clk gsbi6_p_clk = {
 		.dbg_name = "gsbi6_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gsbi6_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2224,6 +2295,7 @@ static struct branch_clk gsbi7_p_clk = {
 		.dbg_name = "gsbi7_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gsbi7_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2240,6 +2312,7 @@ static struct branch_clk gsbi8_p_clk = {
 		.dbg_name = "gsbi8_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gsbi8_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2256,6 +2329,7 @@ static struct branch_clk gsbi9_p_clk = {
 		.dbg_name = "gsbi9_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gsbi9_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2272,6 +2346,7 @@ static struct branch_clk gsbi10_p_clk = {
 		.dbg_name = "gsbi10_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gsbi10_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2288,6 +2363,7 @@ static struct branch_clk gsbi11_p_clk = {
 		.dbg_name = "gsbi11_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gsbi11_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2304,6 +2380,7 @@ static struct branch_clk gsbi12_p_clk = {
 		.dbg_name = "gsbi12_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gsbi12_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2318,6 +2395,7 @@ static struct branch_clk sata_phy_cfg_clk = {
 		.dbg_name = "sata_phy_cfg_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(sata_phy_cfg_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2334,6 +2412,7 @@ static struct branch_clk tsif_p_clk = {
 		.dbg_name = "tsif_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(tsif_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2348,6 +2427,7 @@ static struct branch_clk usb_fs1_p_clk = {
 		.dbg_name = "usb_fs1_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(usb_fs1_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2362,6 +2442,7 @@ static struct branch_clk usb_fs2_p_clk = {
 		.dbg_name = "usb_fs2_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(usb_fs2_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2378,6 +2459,7 @@ static struct branch_clk usb_hs1_p_clk = {
 		.dbg_name = "usb_hs1_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(usb_hs1_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2392,6 +2474,7 @@ static struct branch_clk usb_hs3_p_clk = {
 		.dbg_name = "usb_hs3_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(usb_hs3_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2406,6 +2489,7 @@ static struct branch_clk usb_hs4_p_clk = {
 		.dbg_name = "usb_hs4_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(usb_hs4_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2420,6 +2504,7 @@ static struct branch_clk usb_hsic_p_clk = {
 		.dbg_name = "usb_hsic_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(usb_hsic_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2436,6 +2521,7 @@ static struct branch_clk sdc1_p_clk = {
 		.dbg_name = "sdc1_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(sdc1_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2452,6 +2538,7 @@ static struct branch_clk sdc2_p_clk = {
 		.dbg_name = "sdc2_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(sdc2_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2468,6 +2555,7 @@ static struct branch_clk sdc3_p_clk = {
 		.dbg_name = "sdc3_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(sdc3_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2484,6 +2572,7 @@ static struct branch_clk sdc4_p_clk = {
 		.dbg_name = "sdc4_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(sdc4_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2500,6 +2589,7 @@ static struct branch_clk sdc5_p_clk = {
 		.dbg_name = "sdc5_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(sdc5_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2516,6 +2606,7 @@ static struct branch_clk adm0_clk = {
 		.dbg_name = "adm0_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(adm0_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2533,6 +2624,7 @@ static struct branch_clk adm0_p_clk = {
 		.dbg_name = "adm0_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(adm0_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2548,6 +2640,7 @@ static struct branch_clk pmic_arb0_p_clk = {
 		.dbg_name = "pmic_arb0_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(pmic_arb0_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2563,6 +2656,7 @@ static struct branch_clk pmic_arb1_p_clk = {
 		.dbg_name = "pmic_arb1_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(pmic_arb1_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2578,6 +2672,7 @@ static struct branch_clk pmic_ssbi2_clk = {
 		.dbg_name = "pmic_ssbi2_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(pmic_ssbi2_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2595,6 +2690,7 @@ static struct branch_clk rpm_msg_ram_p_clk = {
 		.dbg_name = "rpm_msg_ram_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(rpm_msg_ram_p_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2624,6 +2720,7 @@ static struct branch_clk rpm_msg_ram_p_clk = {
 			.ops = &clk_ops_rcg, \
 			VDD_DIG_FMAX_MAP2(LOW, 64000000, NOMINAL, 128000000), \
 			CLK_INIT(name.c), \
+			.warned = true, \
 		}, \
 	}
 #define F_CAM(f, s, d, m, n) \
@@ -2725,6 +2822,7 @@ static struct branch_clk csi0_phy_clk = {
 		.dbg_name = "csi0_phy_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(csi0_phy_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2783,6 +2881,7 @@ static struct branch_clk csi1_phy_clk = {
 		.dbg_name = "csi1_phy_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(csi1_phy_clk.c),
+		.warned = true,
 	},
 };
 
@@ -2841,6 +2940,7 @@ static struct branch_clk csi2_phy_clk = {
 		.dbg_name = "csi2_phy_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(csi2_phy_clk.c),
+		.warned = true,
 	},
 };
 
@@ -3021,6 +3121,7 @@ static struct pix_rdi_clk csi_pix_clk = {
 		.dbg_name = "csi_pix_clk",
 		.ops = &clk_ops_pix_rdi_8960,
 		CLK_INIT(csi_pix_clk.c),
+		.warned = true,
 	},
 };
 
@@ -3040,6 +3141,7 @@ static struct pix_rdi_clk csi_pix1_clk = {
 		.dbg_name = "csi_pix1_clk",
 		.ops = &clk_ops_pix_rdi_8960,
 		CLK_INIT(csi_pix1_clk.c),
+		.warned = true,
 	},
 };
 
@@ -3059,6 +3161,7 @@ static struct pix_rdi_clk csi_rdi_clk = {
 		.dbg_name = "csi_rdi_clk",
 		.ops = &clk_ops_pix_rdi_8960,
 		CLK_INIT(csi_rdi_clk.c),
+		.warned = true,
 	},
 };
 
@@ -3078,6 +3181,7 @@ static struct pix_rdi_clk csi_rdi1_clk = {
 		.dbg_name = "csi_rdi1_clk",
 		.ops = &clk_ops_pix_rdi_8960,
 		CLK_INIT(csi_rdi1_clk.c),
+		.warned = true,
 	},
 };
 
@@ -3097,6 +3201,7 @@ static struct pix_rdi_clk csi_rdi2_clk = {
 		.dbg_name = "csi_rdi2_clk",
 		.ops = &clk_ops_pix_rdi_8960,
 		CLK_INIT(csi_rdi2_clk.c),
+		.warned = true,
 	},
 };
 
@@ -3134,6 +3239,7 @@ static struct rcg_clk csiphy_timer_src_clk = {
 		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP2(LOW, 86000000, NOMINAL, 178000000),
 		CLK_INIT(csiphy_timer_src_clk.c),
+		.warned = true,
 	},
 };
 
@@ -3149,6 +3255,7 @@ static struct branch_clk csi0phy_timer_clk = {
 		.dbg_name = "csi0phy_timer_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(csi0phy_timer_clk.c),
+		.warned = true,
 	},
 };
 
@@ -3164,6 +3271,7 @@ static struct branch_clk csi1phy_timer_clk = {
 		.dbg_name = "csi1phy_timer_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(csi1phy_timer_clk.c),
+		.warned = true,
 	},
 };
 
@@ -3179,6 +3287,7 @@ static struct branch_clk csi2phy_timer_clk = {
 		.dbg_name = "csi2phy_timer_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(csi2phy_timer_clk.c),
+		.warned = true,
 	},
 };
 
@@ -3245,6 +3354,7 @@ static struct rcg_clk dsi1_byte_clk = {
 		.dbg_name = "dsi1_byte_clk",
 		.ops = &clk_ops_rcg,
 		CLK_INIT(dsi1_byte_clk.c),
+		.warned = true,
 	},
 };
 
@@ -3267,6 +3377,7 @@ static struct rcg_clk dsi2_byte_clk = {
 		.dbg_name = "dsi2_byte_clk",
 		.ops = &clk_ops_rcg,
 		CLK_INIT(dsi2_byte_clk.c),
+		.warned = true,
 	},
 };
 
@@ -3287,6 +3398,7 @@ static struct rcg_clk dsi1_esc_clk = {
 		.dbg_name = "dsi1_esc_clk",
 		.ops = &clk_ops_rcg,
 		CLK_INIT(dsi1_esc_clk.c),
+		.warned = true,
 	},
 };
 
@@ -3307,6 +3419,7 @@ static struct rcg_clk dsi2_esc_clk = {
 		.dbg_name = "dsi2_esc_clk",
 		.ops = &clk_ops_rcg,
 		CLK_INIT(dsi2_esc_clk.c),
+		.warned = true,
 	},
 };
 
@@ -3377,6 +3490,7 @@ static struct rcg_clk gfx2d0_clk = {
 		VDD_DIG_FMAX_MAP3(LOW,  100000000, NOMINAL, 200000000,
 				  HIGH, 228571000),
 		CLK_INIT(gfx2d0_clk.c),
+		.warned = true,
 	},
 };
 
@@ -3422,6 +3536,7 @@ static struct rcg_clk gfx2d1_clk = {
 		VDD_DIG_FMAX_MAP3(LOW,  100000000, NOMINAL, 200000000,
 				  HIGH, 228571000),
 		CLK_INIT(gfx2d1_clk.c),
+		.warned = true,
 	},
 };
 
@@ -3578,6 +3693,7 @@ static struct rcg_clk gfx3d_clk = {
 				  HIGH, 400000000),
 		CLK_INIT(gfx3d_clk.c),
 		.depends = &gmem_axi_clk.c,
+		.warned = true,
 	},
 };
 
@@ -3639,6 +3755,7 @@ static struct rcg_clk vcap_clk = {
 		.depends = &vcap_axi_clk.c,
 		VDD_DIG_FMAX_MAP2(LOW, 100000000, NOMINAL, 200000000),
 		CLK_INIT(vcap_clk.c),
+		.warned = true,
 	},
 };
 
@@ -3654,6 +3771,7 @@ static struct branch_clk vcap_npl_clk = {
 		.dbg_name = "vcap_npl_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(vcap_npl_clk.c),
+		.warned = true,
 	},
 };
 
@@ -3715,6 +3833,7 @@ static struct rcg_clk ijpeg_clk = {
 				  HIGH, 320000000),
 		CLK_INIT(ijpeg_clk.c),
 		.depends = &ijpeg_axi_clk.c,
+		.warned = true,
 	},
 };
 
@@ -3757,6 +3876,7 @@ static struct rcg_clk jpegd_clk = {
 		VDD_DIG_FMAX_MAP2(LOW, 96000000, NOMINAL, 200000000),
 		CLK_INIT(jpegd_clk.c),
 		.depends = &jpegd_axi_clk.c,
+		.warned = true,
 	},
 };
 
@@ -3855,6 +3975,7 @@ static struct rcg_clk mdp_clk = {
 		VDD_DIG_FMAX_MAP2(LOW, 96000000, NOMINAL, 200000000),
 		CLK_INIT(mdp_clk.c),
 		.depends = &mdp_axi_clk.c,
+		.warned = true,
 	},
 };
 
@@ -3872,6 +3993,7 @@ static struct branch_clk lut_mdp_clk = {
 		.dbg_name = "lut_mdp_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(lut_mdp_clk.c),
+		.warned = true,
 	},
 };
 
@@ -3905,6 +4027,7 @@ static struct rcg_clk mdp_vsync_clk = {
 		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP1(LOW, 27000000),
 		CLK_INIT(mdp_vsync_clk.c),
+		.warned = true,
 	},
 };
 
@@ -3967,6 +4090,7 @@ static struct rcg_clk rot_clk = {
 		VDD_DIG_FMAX_MAP2(LOW, 96000000, NOMINAL, 200000000),
 		CLK_INIT(rot_clk.c),
 		.depends = &rot_axi_clk.c,
+		.warned = true,
 	},
 };
 
@@ -4006,6 +4130,7 @@ static struct clk hdmi_pll_clk = {
 	.vdd_class = &vdd_sr2_hdmi_pll,
 	.fmax[VDD_SR2_HDMI_PLL_ON] = ULONG_MAX,
 	CLK_INIT(hdmi_pll_clk),
+	.warned = true,
 };
 
 #define F_TV_GND(f, s, p_r, d, m, n) \
@@ -4082,6 +4207,8 @@ static struct rcg_clk tv_src_clk = {
 		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP2(LOW, 27030000, NOMINAL, 149000000),
 		CLK_INIT(tv_src_clk.c),
+		.warned = true,
+
 	},
 };
 
@@ -4149,6 +4276,8 @@ static struct branch_clk mdp_tv_clk = {
 		.dbg_name = "mdp_tv_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(mdp_tv_clk.c),
+		.warned = true,
+
 	},
 };
 
@@ -4166,6 +4295,8 @@ static struct branch_clk hdmi_tv_clk = {
 		.dbg_name = "hdmi_tv_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(hdmi_tv_clk.c),
+		.warned = true,
+
 	},
 };
 
@@ -4212,6 +4343,7 @@ static struct branch_clk hdmi_app_clk = {
 		.dbg_name = "hdmi_app_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(hdmi_app_clk.c),
+		.warned = true,
 	},
 };
 
@@ -4501,6 +4633,7 @@ static struct clk_freq_tbl clk_tbl_aif_osr_393[] = {
 			.ops = &clk_ops_rcg, \
 			VDD_DIG_FMAX_MAP1(LOW, 24576000), \
 			CLK_INIT(i##_clk.c), \
+			.warned = true, \
 		}, \
 	}
 
@@ -5212,24 +5345,42 @@ static struct clk_lookup msm_clocks_8064[] = {
 #endif
 	CLK_LOOKUP("core_clk",		gsbi2_uart_clk.c,	""),
 	CLK_LOOKUP("core_clk",		gsbi3_uart_clk.c,	""),
-#ifdef CONFIG_MACH_LGE
+#if defined(CONFIG_LGE_IRDA)
+	CLK_LOOKUP("core_clk",		gsbi4_uart_clk.c,	"msm_serial_hsl.1"),
+#elif defined(CONFIG_MACH_LGE)
 	CLK_LOOKUP("core_clk",		gsbi4_uart_clk.c,	"msm_serial_hsl.0"),
 #else
 	CLK_LOOKUP("core_clk",		gsbi4_uart_clk.c,	""),
 #endif
 	CLK_LOOKUP("core_clk",		gsbi5_uart_clk.c,	""),
+/*	[G][UART][DCM] Add uart for FELICA
+	2012-04-17 jaejoong.kim@lge.com
+*/
+#if defined(CONFIG_LGE_FELICA) || defined(CONFIG_LGE_NFC_SONY_CXD2235AGG)
+	CLK_LOOKUP("core_clk",		gsbi6_uart_clk.c,	"msm_serial_hsl.2"),
+#else
 	CLK_LOOKUP("core_clk",		gsbi6_uart_clk.c,	""),
+#endif
 #ifdef CONFIG_MACH_LGE
 	CLK_LOOKUP("core_clk",		gsbi7_uart_clk.c,	""),
 #else
 	CLK_LOOKUP("core_clk",		gsbi7_uart_clk.c, "msm_serial_hsl.0"),
 #endif
+#if defined(CONFIG_LGE_NFC_PN544) || defined(CONFIG_LGE_NFC_SONY_CXD2235AGG) || defined(CONFIG_LGE_FELICA)	
 	CLK_LOOKUP("core_clk",		gsbi1_qup_clk.c,	"qup_i2c.0"),
+#endif	
 	CLK_LOOKUP("core_clk",		gsbi2_qup_clk.c,	""),
 	CLK_LOOKUP("core_clk",		gsbi3_qup_clk.c,	"qup_i2c.3"),
 	CLK_LOOKUP("core_clk",		gsbi4_qup_clk.c,	"qup_i2c.4"),
+
+// LGE_BROADCAST_ONESEG {
+#if defined(CONFIG_LGE_BROADCAST_TDMB) || defined(CONFIG_LGE_BROADCAST_ONESEG)
 	CLK_LOOKUP("core_clk",		gsbi5_qup_clk.c,	"spi_qsd.0"),
+#else
 	CLK_LOOKUP("core_clk",		gsbi5_qup_clk.c,	"qup_i2c.5"),
+#endif /* CONFIG_LGE_BROADCAST */
+// LGE_BROADCAST_ONESEG }
+
 	CLK_LOOKUP("core_clk",		gsbi6_qup_clk.c,	""),
 	CLK_LOOKUP("core_clk",		gsbi7_qup_clk.c,	""),
 	CLK_LOOKUP("core_clk",		pdm_clk.c,		""),
@@ -5270,16 +5421,34 @@ static struct clk_lookup msm_clocks_8064[] = {
 #else
 	CLK_LOOKUP("iface_clk",		gsbi1_p_clk.c,	"msm_serial_hsl.1"),
 #endif
+#if defined(CONFIG_LGE_NFC_PN544) || defined(CONFIG_LGE_NFC_SONY_CXD2235AGG) || defined(CONFIG_LGE_FELICA)
 	CLK_LOOKUP("iface_clk",		gsbi1_p_clk.c,	"qup_i2c.0"),
+#endif	
 	CLK_LOOKUP("iface_clk",		gsbi2_p_clk.c,		""),
 	CLK_LOOKUP("iface_clk",		gsbi3_p_clk.c,		"qup_i2c.3"),
-#ifdef CONFIG_MACH_LGE
+#if defined(CONFIG_LGE_IRDA)
+	CLK_LOOKUP("iface_clk",		gsbi4_p_clk.c,		"msm_serial_hsl.1"),
+#elif defined(CONFIG_MACH_LGE)
 	CLK_LOOKUP("iface_clk",		gsbi4_p_clk.c,		"msm_serial_hsl.0"),
 #endif
 	CLK_LOOKUP("iface_clk",		gsbi4_p_clk.c,		"qup_i2c.4"),
+
+// LGE_BROADCAST_ONESEG {
+#if defined(CONFIG_LGE_BROADCAST_TDMB) || defined(CONFIG_LGE_BROADCAST_ONESEG)
 	CLK_LOOKUP("iface_clk",		gsbi5_p_clk.c,		"spi_qsd.0"),
+#else
 	CLK_LOOKUP("iface_clk",		gsbi5_p_clk.c,		"qup_i2c.5"),
+#endif /* CONFIG_LGE_BROADCAST */
+// LGE_BROADCAST_ONESEG }
+
+/*	[G][UART][DCM] Add uart for FELICA
+	2012-04-17 jaejoong.kim@lge.com
+*/
+#if defined(CONFIG_LGE_FELICA) || defined(CONFIG_LGE_NFC_SONY_CXD2235AGG)
+	CLK_LOOKUP("iface_clk",		gsbi6_p_clk.c,		"msm_serial_hsl.2"),
+#else
 	CLK_LOOKUP("iface_clk",		gsbi6_p_clk.c,		""),
+#endif
 #ifdef CONFIG_MACH_LGE
 	CLK_LOOKUP("iface_clk",		gsbi7_p_clk.c,		""),
 #else
@@ -5663,12 +5832,17 @@ static struct clk_lookup msm_clocks_8960_common[] __initdata = {
 	CLK_LOOKUP("iface_clk",		pmic_arb1_p_clk.c,	""),
 	CLK_LOOKUP("core_clk",		pmic_ssbi2_clk.c,	""),
 	CLK_LOOKUP("mem_clk",		rpm_msg_ram_p_clk.c,	""),
+#if defined(CONFIG_MACH_LGE)
+	CLK_LOOKUP("cam_clk",		cam0_clk.c, "4-000d"), /* GSBI4, Slave Addr: 0x0d, imx111 */
+	CLK_LOOKUP("cam_clk",		cam1_clk.c, "4-006e"), /* GSBI4, Slave Addr: 0x6e, imx119 */
+#else /* QCT Original */
 	CLK_LOOKUP("cam_clk",		cam0_clk.c,	"4-001a"),
 	CLK_LOOKUP("cam_clk",		cam0_clk.c,	"4-006c"),
 	CLK_LOOKUP("cam_clk",		cam0_clk.c,	"4-0048"),
 	CLK_LOOKUP("cam_clk",		cam2_clk.c,		NULL),
 	CLK_LOOKUP("cam_clk",		cam0_clk.c,	"4-0020"),
 	CLK_LOOKUP("cam_clk",		cam0_clk.c,	"4-0034"),
+#endif
 	CLK_LOOKUP("csi_src_clk",	csi0_src_clk.c,		"msm_csid.0"),
 	CLK_LOOKUP("csi_src_clk",	csi1_src_clk.c,		"msm_csid.1"),
 	CLK_LOOKUP("csi_src_clk",	csi2_src_clk.c,		"msm_csid.2"),

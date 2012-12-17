@@ -501,6 +501,28 @@ power_attr(wake_lock);
 power_attr(wake_unlock);
 #endif
 
+#ifdef CONFIG_LGE_LOG_SERVICE
+/* LGE_CHANGE: add lge log service for kernel utc time stamp
+ * /sys/power/lge_logstart
+ * 2012-06-23, tei.kim@lge.com */
+
+static ssize_t lge_logstart_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	printk("lge_logstart_show() invoked\n");
+	return 0;
+}
+
+static ssize_t lge_logstart_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t n)
+{
+	printk("lge_logstart_store() invoked\n");
+	return n;
+}
+
+power_attr(lge_logstart);
+#endif
+
 static struct attribute *g[] = {
 	&state_attr.attr,
 #ifdef CONFIG_PM_TRACE
@@ -519,6 +541,11 @@ static struct attribute *g[] = {
 	&wake_lock_attr.attr,
 	&wake_unlock_attr.attr,
 #endif
+#endif
+#ifdef CONFIG_LGE_LOG_SERVICE
+/* LGE_CHANGE: add lge log service for kernel utc time stamp
+ * 2012-06-23, tei.kim@lge.com */
+    &lge_logstart_attr.attr,
 #endif
 	NULL,
 };

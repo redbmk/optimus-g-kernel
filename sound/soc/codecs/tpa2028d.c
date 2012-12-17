@@ -156,6 +156,37 @@ inline void set_amp_gain(int amp_state)
 }
 EXPORT_SYMBOL(set_amp_gain);
 
+static long amp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	int rc = 0;
+	return rc;
+}
+
+static int amp_open(struct inode *inode, struct file *file)
+{
+	int rc = 0;
+	return rc;
+}
+
+static int amp_release(struct inode *inode, struct file *file)
+{
+	int rc = 0;
+	return rc;
+}
+
+static const struct file_operations tpa_fops = {
+	.owner		= THIS_MODULE,
+	.open		= amp_open,
+	.release	= amp_release,
+	.unlocked_ioctl	= amp_ioctl,
+};
+
+struct miscdevice amp_misc = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = "tpa_amp",
+	.fops = &tpa_fops,
+};
+
 static ssize_t
 tpa2028d_comp_rate_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -270,6 +301,11 @@ static int tpa2028d_amp_probe(struct i2c_client *client,
 	i2c_set_clientdata(client, data);
 
 	set_amp_gain(SPK_OFF);
+
+/* BEGIN:0009748        ehgrace.kim@lge.com     2010.10.07*/
+/* ADD: modifiy the amp for sonification mode for subsystem audio calibration */
+	err = misc_register(&amp_misc);
+/* END:0009748        ehgrace.kim@lge.com     2010.10.07*/
 
 	for (i = 0; i < ARRAY_SIZE(tpa2028d_device_attrs); i++) {
 		err = device_create_file(&client->dev, &tpa2028d_device_attrs[i]);

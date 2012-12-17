@@ -18,6 +18,13 @@
 #include <linux/bitops.h>
 #include <linux/slab.h>
 #include <linux/clk.h>
+/* [AUDIO_BSP]_START 2012.06.20, sehwan.lee@lge.com
+  * The call mute issue occurs when we are calling using Voice Dialer through BT SCO
+  * This code(QCT Solution) solved issue
+  */
+#include <linux/pm_runtime.h>
+#include <linux/slimbus/slimbus.h>
+/* [AUDIO_BSP]_END, 2012.06.20, sehwan.lee@lge.com */
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/soc.h>
@@ -713,6 +720,25 @@ static int msm_dai_q6_hw_params(struct snd_pcm_substream *substream,
 	return rc;
 }
 
+/* [AUDIO_BSP]_START 2012.06.20, sehwan.lee@lge.com
+  * The call mute issue occurs when we are calling using Voice Dialer through BT SCO
+  * This code(QCT Solution) solved issue
+  */
+static int msm_dai_q6_slimbus_1_startup(struct snd_pcm_substream *substream,
+					struct snd_soc_dai *dai)
+{
+	struct slim_controller *slim = slim_busnum_to_ctrl(1);
+
+	pr_debug("%s: substream %s stream %d\n",
+		 __func__, substream->name, substream->stream);
+
+	if (slim != NULL)
+		pm_runtime_get_sync(slim->dev.parent);
+
+	return 0;
+}
+/* [AUDIO_BSP]_END, 2012.06.20, sehwan.lee@lge.com */
+
 static void msm_dai_q6_auxpcm_shutdown(struct snd_pcm_substream *substream,
 				struct snd_soc_dai *dai)
 {
@@ -830,6 +856,36 @@ static void msm_dai_q6_shutdown(struct snd_pcm_substream *substream,
 		clear_bit(STATUS_PORT_STARTED, dai_data->status_mask);
 	}
 }
+
+/* [AUDIO_BSP]_START 2012.06.20, sehwan.lee@lge.com
+  * The call mute issue occurs when we are calling using Voice Dialer through BT SCO
+  * This code(QCT Solution) solved issue
+  */
+static void msm_dai_q6_slimbus_1_shutdown(struct snd_pcm_substream *substream,
+					  struct snd_soc_dai *dai)
+{
+	struct msm_dai_q6_dai_data *dai_data = dev_get_drvdata(dai->dev);
+	struct slim_controller *slim = slim_busnum_to_ctrl(1);
+	int rc = 0;
+
+	pr_debug("%s: substream %s stream %d\n",
+		 __func__, substream->name, substream->stream);
+
+	if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
+		rc = afe_close(dai->id); /* can block */
+		if (IS_ERR_VALUE(rc))
+			dev_err(dai->dev, "fail to close AFE port\n");
+		pr_debug("%s: dai_data->status_mask = %ld\n", __func__,
+			*dai_data->status_mask);
+		clear_bit(STATUS_PORT_STARTED, dai_data->status_mask);
+	}
+
+	if (slim != NULL) {
+		pm_runtime_mark_last_busy(slim->dev.parent);
+		pm_runtime_put(slim->dev.parent);
+	}
+}
+/* [AUDIO_BSP]_END, 2012.06.20, sehwan.lee@lge.com */
 
 static int msm_dai_q6_auxpcm_prepare(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
@@ -1471,6 +1527,21 @@ static struct snd_soc_dai_ops msm_dai_q6_ops = {
 	.set_channel_map = msm_dai_q6_set_channel_map,
 };
 
+/* [AUDIO_BSP]_START 2012.06.20, sehwan.lee@lge.com
+  * The call mute issue occurs when we are calling using Voice Dialer through BT SCO
+  * This code(QCT Solution) solved issue
+  */
+static struct snd_soc_dai_ops msm_dai_q6_slimbus_1_ops = {
+	.prepare	= msm_dai_q6_prepare,
+	.trigger	= msm_dai_q6_trigger,
+	.hw_params	= msm_dai_q6_hw_params,
+	.startup        = msm_dai_q6_slimbus_1_startup,
+	.shutdown	= msm_dai_q6_slimbus_1_shutdown,
+	.set_fmt	= msm_dai_q6_set_fmt,
+	.set_channel_map = msm_dai_q6_set_channel_map,
+};
+/* [AUDIO_BSP]_END, 2012.06.20, sehwan.lee@lge.com */
+
 static struct snd_soc_dai_ops msm_dai_q6_auxpcm_ops = {
 	.prepare	= msm_dai_q6_auxpcm_prepare,
 	.trigger	= msm_dai_q6_auxpcm_trigger,
@@ -1750,6 +1821,9 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_1_rx_dai = {
 		.rate_max = 16000,
 	},
 	.ops = &msm_dai_q6_ops,
+// [AUDIO_BSP]_START, 20120620, sehwan.lee@lge.com The call mute issue occurs when we are calling using Voice Dialer through BT SCO	
+	.ops = &msm_dai_q6_slimbus_1_ops,
+// [AUDIO_BSP]_END, 20120620, sehwan.lee@lge.com The call mute issue occurs when we are calling using Voice Dialer through BT SCO
 	.probe = msm_dai_q6_dai_probe,
 	.remove = msm_dai_q6_dai_remove,
 };
@@ -1764,6 +1838,9 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_1_tx_dai = {
 		.rate_max = 16000,
 	},
 	.ops = &msm_dai_q6_ops,
+// [AUDIO_BSP]_START, 20120620, sehwan.lee@lge.com The call mute issue occurs when we are calling using Voice Dialer through BT SCO
+	.ops = &msm_dai_q6_slimbus_1_ops,
+// [AUDIO_BSP]_END, 20120620, sehwan.lee@lge.com The call mute issue occurs when we are calling using Voice Dialer through BT SCO	
 	.probe = msm_dai_q6_dai_probe,
 	.remove = msm_dai_q6_dai_remove,
 };

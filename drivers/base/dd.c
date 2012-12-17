@@ -264,11 +264,23 @@ static int really_probe(struct device *dev, struct device_driver *drv)
 	}
 
 	if (dev->bus->probe) {
+#ifdef CONFIG_LGE_PROBE_TIME_PROFILING
+		dev_err(dev, "bus probe_log s\n");
+#endif
 		ret = dev->bus->probe(dev);
+#ifdef CONFIG_LGE_PROBE_TIME_PROFILING
+		dev_err(dev, "bus probe_log e\n");
+#endif
 		if (ret)
 			goto probe_failed;
 	} else if (drv->probe) {
+#ifdef CONFIG_LGE_PROBE_TIME_PROFILING
+		dev_err(dev, "drv probe_log s\n");
+#endif
 		ret = drv->probe(dev);
+#ifdef CONFIG_LGE_PROBE_TIME_PROFILING
+		dev_err(dev, "drv probe_log e\n");
+#endif
 		if (ret)
 			goto probe_failed;
 	}

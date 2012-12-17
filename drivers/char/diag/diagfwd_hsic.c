@@ -39,12 +39,41 @@
 
 #define NUM_HSIC_BUF_TBL_ENTRIES N_MDM_WRITE
 
+#define N_MDM_WRITE    8
+#define N_MDM_READ 1
+
+#define READ_HSIC_BUF_SIZE 2048
+
+#define NUM_HSIC_BUF_TBL_ENTRIES N_MDM_WRITE
+
+#if defined(CONFIG_LGE_HANDLE_PANIC)//unchol.park
+#include <mach/board_lge.h>
+#endif
+
+#ifdef CONFIG_LGE_USB_DIAG_DISABLE
+#include "diag_lock.h"
+static int diag_enable = DIAG_DISABLE;
+void diagfwd_hsic_enable(int enable)
+{
+    diag_enable = enable;
+}
+EXPORT_SYMBOL(diagfwd_hsic_enable);
+#endif
+
 static void diag_read_hsic_work_fn(struct work_struct *work)
 {
 	unsigned char *buf_in_hsic = NULL;
 	int num_reads_submitted = 0;
 	int err = 0;
 	int write_ptrs_available;
+
+#ifdef CONFIG_LGE_USB_DIAG_DISABLE
+	if(diag_enable == 0)
+	{
+		pr_debug("diag: [diag_read_hsic_work_fn] mdm_diag diabled\n");
+		return;
+	}
+#endif
 
 	if (!driver->hsic_ch) {
 		pr_err("DIAG in %s: driver->hsic_ch == 0\n", __func__);
@@ -61,6 +90,12 @@ static void diag_read_hsic_work_fn(struct work_struct *work)
 	else
 		write_ptrs_available = driver->poolsize_hsic_write -
 					driver->count_hsic_write_pool;
+
+#ifdef CONFIG_LGE_DM_APP
+	if (driver->logging_mode == DM_APP_MODE)
+		write_ptrs_available = driver->poolsize_hsic_write -
+			driver->num_hsic_buf_tbl_entries;
+#endif
 
 	/*
 	 * Queue up a read on the HSIC for all available buffers in the
@@ -133,6 +168,16 @@ static void diag_hsic_read_complete_callback(void *ctxt, char *buf,
 		return;
 	}
 
+#ifdef CONFIG_LGE_DM_APP
+	if ((actual_size == 0) && 
+		(driver->logging_mode == DM_APP_MODE)) {			
+		diagmem_free(driver, buf, POOL_TYPE_HSIC);
+		queue_work(driver->diag_hsic_wq, 
+			&driver->diag_read_hsic_work);
+		return;
+	}
+#endif
+
 	/* Note that zero length is valid and still needs to be sent */
 	if (actual_size >= 0) {
 		if (!buf) {
@@ -142,6 +187,11 @@ static void diag_hsic_read_complete_callback(void *ctxt, char *buf,
 			 * Send data in buf to be written on the
 			 * appropriate device, e.g. USB MDM channel
 			 */
+#if defined(CONFIG_LGE_CRASH_HANDLER)//unchol.park
+		if(lge_pm_get_cable_type() == CABLE_130K)
+			printk("[MDM TEST] Receive packet From MDM : 1st 6 bytes - %d, %d, %d, %d, %d, %d len = %d \n",
+					*buf, *(buf + 1), *(buf + 2), *(buf + 3), *(buf + 4), *(buf + 5), actual_size);
+#endif			
 			driver->write_len_mdm = actual_size;
 			err = diag_device_write((void *)buf, HSIC_DATA, NULL);
 			/* If an error, return buffer to the pool */
@@ -172,6 +222,12 @@ static void diag_hsic_read_complete_callback(void *ctxt, char *buf,
 		queue_work(driver->diag_bridge_wq,
 				 &driver->diag_read_hsic_work);
 	}
+
+#ifdef CONFIG_LGE_DM_APP
+	if (err && (driver->logging_mode == DM_APP_MODE))
+		queue_work(driver->diag_hsic_wq,
+				&driver->diag_read_hsic_work);
+#endif
 }
 
 static void diag_hsic_write_complete_callback(void *ctxt, char *buf,
@@ -179,6 +235,12 @@ static void diag_hsic_write_complete_callback(void *ctxt, char *buf,
 {
 	/* The write of the data to the HSIC bridge is complete */
 	driver->in_busy_hsic_write = 0;
+
+#if defined(CONFIG_LGE_HANDLE_PANIC)//unchol.park
+	if(lge_pm_get_cable_type() == CABLE_130K)
+		printk("[MDM TEST] Send packet to MDM Complete!!: 1st 6 bytes - %d, %d, %d, %d, %d, %d len = %d \n",
+				*buf, *(buf + 1), *(buf + 2), *(buf + 3), *(buf + 4), *(buf + 5), actual_size);
+#endif
 
 	if (!driver->hsic_ch) {
 		pr_err("DIAG in %s: driver->hsic_ch == 0\n", __func__);
@@ -203,6 +265,11 @@ static int diag_hsic_suspend(void *ctxt)
 	/* Don't allow suspend if in MEMORY_DEVICE_MODE */
 	if (driver->logging_mode == MEMORY_DEVICE_MODE)
 		return -EBUSY;
+
+#ifdef CONFIG_LGE_DM_APP
+	if (driver->logging_mode == DM_APP_MODE)
+		return -EBUSY;
+#endif
 
 	driver->hsic_suspend = 1;
 
@@ -276,6 +343,14 @@ int diagfwd_connect_bridge(int process_cable)
 
 	pr_debug("diag: in %s\n", __func__);
 
+#ifdef CONFIG_LGE_DM_APP
+	if ((process_cable) && (driver->logging_mode == DM_APP_MODE)) {
+		printk(KERN_DEBUG "diag: USB connected in DM_APP_MODE\n");
+		driver->usb_mdm_connected = 1;
+		return 0;
+	}
+#endif
+
 	/* If the usb cable is being connected */
 	if (process_cable) {
 		err = usb_diag_alloc_req(driver->mdm_ch, N_MDM_WRITE,
@@ -341,6 +416,14 @@ int diagfwd_connect_bridge(int process_cable)
 int diagfwd_disconnect_bridge(int process_cable)
 {
 	pr_debug("diag: In %s, process_cable: %d\n", __func__, process_cable);
+
+#ifdef CONFIG_LGE_DM_APP
+	if (driver->logging_mode == DM_APP_MODE) {
+		printk(KERN_DEBUG "diag: USB connected in DM_APP_MODE\n");
+		driver->usb_mdm_connected = 0;
+		return 0;
+	}
+#endif
 
 	/* If the usb cable is being disconnected */
 	if (process_cable) {
@@ -423,6 +506,12 @@ static int diagfwd_read_complete_bridge(struct diag_request *diag_read_ptr)
 		 */
 		int err;
 		driver->in_busy_hsic_write = 1;
+#if defined(CONFIG_LGE_HANDLE_PANIC)//unchol.park
+		if(lge_pm_get_cable_type() == CABLE_130K)
+			printk("[MDM TEST] Send packet to MDM : 1st 6 bytes - %d, %d, %d, %d, %d, %d len = %d \n",
+					*driver->usb_buf_mdm_out, *(driver->usb_buf_mdm_out + 1), *(driver->usb_buf_mdm_out + 2), 
+					*(driver->usb_buf_mdm_out + 3), *(driver->usb_buf_mdm_out + 4), *(driver->usb_buf_mdm_out + 5), driver->read_len_mdm);
+#endif
 		err = diag_bridge_write(driver->usb_buf_mdm_out,
 					driver->read_len_mdm);
 		if (err) {
@@ -506,6 +595,15 @@ static void diag_read_mdm_work_fn(struct work_struct *work)
 	}
 
 	/* if SMUX not enabled, check for HSIC */
+
+#ifdef CONFIG_LGE_USB_DIAG_DISABLE
+	if (diag_enable == 0)
+	{
+		pr_debug("diag: [diag_read_mdm_work_fn] mdm_diag diabled\n");
+		return;
+	}
+#endif
+
 	if (!driver->hsic_ch) {
 		pr_err("DIAG in %s: driver->hsic_ch == 0\n", __func__);
 		return;
@@ -540,8 +638,28 @@ static void diag_read_mdm_work_fn(struct work_struct *work)
 static int diag_hsic_probe(struct platform_device *pdev)
 {
 	int err = 0;
+
+
 	pr_debug("diag: in %s\n", __func__);
 	if (!driver->hsic_device_enabled) {
+		driver->read_len_mdm = 0;
+		if (driver->buf_in_hsic == NULL)
+			driver->buf_in_hsic = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
+		if (driver->buf_in_hsic == NULL)
+			goto err;
+		if (driver->usb_buf_mdm_out  == NULL)
+			driver->usb_buf_mdm_out = kzalloc(USB_MAX_OUT_BUF,
+								 GFP_KERNEL);
+		if (driver->usb_buf_mdm_out == NULL)
+			goto err;
+		if (driver->usb_read_mdm_ptr == NULL)
+			driver->usb_read_mdm_ptr = kzalloc(
+			sizeof(struct diag_request), GFP_KERNEL);
+		if (driver->usb_read_mdm_ptr == NULL)
+			goto err;
+#ifdef CONFIG_DIAG_OVER_USB
+		INIT_WORK(&(driver->diag_read_mdm_work), diag_read_mdm_work_fn);
+#endif
 		diagmem_hsic_init(driver);
 		INIT_WORK(&(driver->diag_read_hsic_work),
 					 diag_read_hsic_work_fn);
@@ -581,7 +699,44 @@ static int diag_hsic_probe(struct platform_device *pdev)
 				 &driver->diag_read_hsic_work);
 	}
 
+#ifdef CONFIG_LGE_DM_APP
+	else if (driver->logging_mode == DM_APP_MODE) {
+			/* The hsic (diag_bridge) platform device driver is enabled */
+			err = diag_bridge_open(&hsic_diag_bridge_ops);
+			if (err) {
+				pr_err("diag: could not open HSIC, err: %d\n", err);
+				driver->hsic_device_opened = 0;
+				return err;
+			}
+	
+			pr_info("diag: opened HSIC channel\n");
+			driver->hsic_device_opened = 1;
+			driver->hsic_ch = 1;
+	
+			driver->in_busy_hsic_read_on_device = 0;
+			driver->in_busy_hsic_write = 0;
+	
+			if (driver->usb_mdm_connected) {
+				/* Poll USB mdm channel to check for data */
+				queue_work(driver->diag_hsic_wq,
+						 &driver->diag_read_mdm_work);
+			}
+	
+			/* Poll HSIC channel to check for data */
+			queue_work(driver->diag_hsic_wq, &driver->diag_read_hsic_work);
+		}
+#endif
+
 	return err;
+err:
+	pr_err("DIAG could not initialize buf for HSIC\n");
+	kfree(driver->buf_in_hsic);
+	kfree(driver->usb_buf_mdm_out);
+	kfree(driver->usb_read_mdm_ptr);
+	if (driver->diag_hsic_wq)
+		destroy_workqueue(driver->diag_hsic_wq);
+
+	return -ENOMEM;
 }
 
 static int diag_hsic_remove(struct platform_device *pdev)

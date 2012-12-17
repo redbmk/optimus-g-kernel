@@ -55,6 +55,12 @@ static void __mdp_outp(uint32 port, uint32 value)
 static int first_pixel_start_x;
 static int first_pixel_start_y;
 
+static struct mdp4_overlay_pipe *dtv_pipe;
+static DECLARE_COMPLETION(dtv_comp);
+#ifdef CONFIG_MACH_LGE /* Solve the HW Reset that occurs due to dtv_on/off during HDCP Auth.*/
+int mdp4_dtv_start_status = 0;
+#endif
+
 void mdp4_dtv_base_swap(int cndx, struct mdp4_overlay_pipe *pipe)
 {
 #ifdef BYPASS4
@@ -535,6 +541,10 @@ static int mdp4_dtv_start(struct msm_fb_data_type *mfd)
 	/* enable DTV block */
 	MDP_OUTP(MDP_BASE + DTV_BASE, 1);
 
+#ifdef CONFIG_MACH_LGE /* Solve the HW Reset that occurs due to dtv_on/off during HDCP Auth.*/
+	mdp4_dtv_start_status = 1;
+#endif
+
 	return 0;
 }
 
@@ -548,6 +558,10 @@ static int mdp4_dtv_stop(struct msm_fb_data_type *mfd)
 		return -EINVAL;
 
 	MDP_OUTP(MDP_BASE + DTV_BASE, 0);
+
+#ifdef CONFIG_MACH_LGE /* Solve the HW Reset that occurs due to dtv_on/off during HDCP Auth.*/
+	mdp4_dtv_start_status = 0;
+#endif
 
 	return 0;
 }
@@ -1069,4 +1083,8 @@ void mdp4_dtv_overlay(struct msm_fb_data_type *mfd)
 	mdp4_dtv_pipe_commit(0, 0);
 	mdp4_overlay_mdp_perf_upd(mfd, 0);
 	mutex_unlock(&mfd->dma->ov_mutex);
+}
+void mdp4_overlay_dtv_wait4idle(struct msm_fb_data_type *mfd)
+{
+	mdp4_overlay_dtv_wait4vsync();
 }

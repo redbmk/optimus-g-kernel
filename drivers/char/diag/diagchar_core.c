@@ -38,6 +38,11 @@
 #endif
 #include <linux/timer.h>
 
+#ifdef CONFIG_LGE_USB_DIAG_DISABLE
+#include <linux/platform_device.h>
+#include "diag_lock.h"
+#endif
+
 MODULE_DESCRIPTION("Diag Char Driver");
 MODULE_LICENSE("GPL v2");
 MODULE_VERSION("1.0");
@@ -1325,6 +1330,77 @@ void diag_bridge_fn(int type)
 inline void diag_bridge_fn(int type) {}
 #endif
 
+#ifdef CONFIG_LGE_USB_DIAG_DISABLE
+extern void diagfwd_enable(int enable);
+extern void diagfwd_hsic_enable(int enable);
+
+static void diag_enable(int enable)
+{
+    set_diag_state(enable);
+#ifndef CONFIG_LGE_USB_DIAG_DISABLE_ONLY_MDM
+    diagfwd_enable(enable);
+#endif
+    diagfwd_hsic_enable(enable);
+}
+
+static ssize_t read_diag_enable(struct device *dev,
+        struct device_attribute *attr,
+        char *buf)
+{
+    return sprintf(buf, "%d", diag_state());
+}
+
+static ssize_t write_diag_enable(struct device *dev,
+        struct device_attribute *attr,
+        const char *buf, size_t size)
+{
+    char *p;
+
+    p = strchr(buf, '\n');
+    if (p) *p = '\0';
+
+    if (!strcmp(buf, "1"))
+        diag_enable(DIAG_ENABLE);
+    else if (!strcmp(buf, "0"))
+        diag_enable(DIAG_DISABLE);
+    else
+        pr_err("%s: unknown value\n", __func__);
+
+    return size;
+}
+
+static DEVICE_ATTR(diag_enable, S_IRUGO | S_IWUSR, read_diag_enable, write_diag_enable);
+
+static int lg_diag_cmd_probe(struct platform_device *pdev)
+{
+    int ret;
+
+    /* /sys/devices/platform/lg_diag_cmd/diag_enable */
+    ret = device_create_file(&pdev->dev, &dev_attr_diag_enable);
+    if (ret) {
+        pr_err("%s: create fail diag_enable\n", __func__);
+        device_remove_file(&pdev->dev, &dev_attr_diag_enable);
+    }
+
+    return ret;
+}
+
+static int lg_diag_cmd_remove(struct platform_device *pdev)
+{
+    device_remove_file(&pdev->dev, &dev_attr_diag_enable);
+    return 0;
+}
+
+static struct platform_driver lg_diag_cmd_driver = {
+    .probe		= lg_diag_cmd_probe,
+    .remove 	= lg_diag_cmd_remove,
+    .driver 	= {
+        .name = "lg_diag_cmd",
+        .owner	= THIS_MODULE,
+    },
+};
+#endif /* CONFIG_LGE_USB_DIAG_DISABLE */
+
 static int __init diagchar_init(void)
 {
 	dev_t dev;
@@ -1400,6 +1476,10 @@ static int __init diagchar_init(void)
 		printk(KERN_INFO "kzalloc failed\n");
 		goto fail;
 	}
+
+#ifdef CONFIG_LGE_USB_DIAG_DISABLE
+	platform_driver_register(&lg_diag_cmd_driver);
+#endif
 
 	pr_info("diagchar initialized now");
 	return 0;

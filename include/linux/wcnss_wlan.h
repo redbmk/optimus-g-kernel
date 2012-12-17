@@ -25,7 +25,18 @@ struct wcnss_wlan_config {
 	int		use_48mhz_xo;
 };
 
+struct wcnss_prealloc {
+	int occupied;
+	unsigned int size;
+	void * ptr;
+};
+
 #define WCNSS_WLAN_IRQ_INVALID -1
+
+void wcnss_prealloc_init (void);
+void wcnss_prealloc_deinit (void);
+void * wcnss_prealloc (unsigned int size);
+int wcnss_prefree (void * ptr);
 
 struct device *wcnss_wlan_get_device(void);
 struct resource *wcnss_wlan_get_memory_map(struct device *dev);

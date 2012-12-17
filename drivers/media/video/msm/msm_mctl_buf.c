@@ -205,7 +205,7 @@ static void msm_vb2_ops_buf_cleanup(struct vb2_buffer *vb)
 	struct msm_cam_v4l2_device *pcam;
 	struct videobuf2_contig_pmem *mem;
 	struct msm_frame_buffer *buf, *tmp;
-	uint32_t i, vb_phyaddr = 0, buf_phyaddr = 0;
+	uint32_t i, rc, vb_phyaddr = 0, buf_phyaddr = 0; /* LGE_CHANGE, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
 	unsigned long flags = 0;
 
 	pcam_inst = vb2_get_drv_priv(vb->vb2_queue);
@@ -263,6 +263,30 @@ static void msm_vb2_ops_buf_cleanup(struct vb2_buffer *vb)
 		buf->state = MSM_BUFFER_STATE_UNUSED;
 		return;
 	}
+/* LGE_CHANGE_S, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
+	if (!get_server_use_count() &&
+		pmctl && pmctl->hardware_running) {
+		pr_err("%s: daemon crashed but hardware is still running\n",
+			   __func__);
+		if (pmctl->mctl_release) {
+			pr_err("%s: Releasing now\n", __func__);
+			/*do not send any commands to hardware
+			after reaching this point*/
+			pmctl->mctl_cmd = NULL;
+			rc = pmctl->mctl_release(pmctl);
+			if (rc < 0)
+				pr_err("mctl_release fails %d\n", rc);
+			pmctl->mctl_release = NULL;
+			pmctl->hardware_running = 0;
+		}
+		else {
+			pr_err("%s: pmctl release is NULL\n", __func__);
+		}
+	} else {
+		pr_err("server use count %d, pmctl pointer %p, hardware_running %d\n", get_server_use_count(),
+		pmctl, pmctl->hardware_running);
+	}
+/* LGE_CHANGE_E, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
 	for (i = 0; i < vb->num_planes; i++) {
 		mem = vb2_plane_cookie(vb, i);
 		videobuf2_pmem_contig_user_put(mem, pmctl->client);
@@ -684,6 +708,14 @@ int msm_mctl_reserve_free_buf(
 					__func__,
 					pcam_inst->buf_offset[buf_idx][i].
 					data_offset, plane_offset);
+//LGE_UPDATE_S 0828 add messages to debug timeout error yt.jeon@lge.com
+				if (pcam_inst->buf_offset[buf_idx][i].data_offset != 0 || plane_offset != 0) {
+					pr_err("%s: data offset %d, plane_offset %d\n",
+						__func__,
+						pcam_inst->buf_offset[buf_idx][i].data_offset,
+						plane_offset);
+				}
+//LGE_UPDATE_E 0828 add messages to debug timeout error yt.jeon@lge.com
 				free_buf->ch_paddr[i] =	(uint32_t)
 				videobuf2_to_pmem_contig(&buf->vidbuf, i) +
 				pcam_inst->buf_offset[buf_idx][i].data_offset +

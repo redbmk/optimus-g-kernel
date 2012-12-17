@@ -400,9 +400,13 @@ struct msm_panel_common_pdata {
 	void *power_on_set_1;
 	void *power_on_set_2;
 	void *power_on_set_3;
+	void *power_on_set_ief;
+	void *power_off_set_ief;
 	ssize_t power_on_set_size_1;
 	ssize_t power_on_set_size_2;
 	ssize_t power_on_set_size_3;
+	ssize_t power_on_set_ief_size;
+	ssize_t power_off_set_ief_size;
 	void *power_off_set_1;
 	void *power_off_set_2;
 	ssize_t power_off_set_size_1;

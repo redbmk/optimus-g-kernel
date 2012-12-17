@@ -705,6 +705,15 @@ static int msm_camera_v4l2_s_parm(struct file *f, void *pctx,
 	pcam_inst = container_of(f->private_data,
 		struct msm_cam_v4l2_dev_inst, eventHandle);
 	pcam_inst->image_mode = (a->parm.capture.extendedmode & 0x7F);
+
+//QCT patch S, Reject_duplicate_camera_instances, 2012-05-25, freeso.kim
+	if (pcam_inst->pcam->dev_inst_map[pcam_inst->image_mode]) {
+		pr_err("%s Stream type %d already streaming.",
+			__func__, pcam_inst->image_mode);
+		return -EBUSY;
+	}
+//QCT patch E, Reject_duplicate_camera_instances, 2012-05-25, freeso.kim
+
 	SET_IMG_MODE(pcam_inst->inst_handle, pcam_inst->image_mode);
 	SET_VIDEO_INST_IDX(pcam_inst->inst_handle, pcam_inst->my_index);
 	pcam_inst->pcam->dev_inst_map[pcam_inst->image_mode] = pcam_inst;
@@ -998,6 +1007,17 @@ static int msm_addr_remap(struct msm_cam_v4l2_dev_inst *pcam_inst,
 	memset(&pcam_inst->mem_map, 0, sizeof(pcam_inst->mem_map));
 	return 0;
 }
+
+/* LGE_CHANGE_S, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
+int get_server_use_count(void)
+{
+	int server_count;
+	mutex_lock(&g_server_dev.server_lock);
+	server_count = g_server_dev.use_count;
+	mutex_unlock(&g_server_dev.server_lock);
+	return server_count;
+}
+/* LGE_CHANGE_E, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
 
 static int msm_mmap(struct file *f, struct vm_area_struct *vma)
 {

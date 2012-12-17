@@ -72,6 +72,7 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 			.dbg_name = #name, \
 			CLK_INIT(name.c), \
 			.depends = dep, \
+			.warned = true, \
 		}, \
 	}; \
 	static struct rpm_clk active = { \
@@ -88,6 +89,7 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 			.dbg_name = #active, \
 			CLK_INIT(active.c), \
 			.depends = dep, \
+			.warned = true, \
 		}, \
 	};
 

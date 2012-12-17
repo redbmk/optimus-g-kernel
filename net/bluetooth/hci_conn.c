@@ -776,7 +776,12 @@ struct hci_conn *hci_connect(struct hci_dev *hdev, int type,
 	if (acl->state == BT_CONNECTED &&
 			(sco->state == BT_OPEN || sco->state == BT_CLOSED)) {
 		acl->power_save = 1;
+// +s LGBT_COMMON_FUNCTION_NO_SNIFF_WHEN_OPEN_SCO - teddy.ju
+		hci_conn_enter_active_mode_no_timer(acl);
+/* Google Original
 		hci_conn_enter_active_mode(acl, 1);
+*/		
+// +e LGBT_COMMON_FUNCTION_NO_SNIFF_WHEN_OPEN_SCO - teddy.ju
 
 		if (test_bit(HCI_CONN_MODE_CHANGE_PEND, &acl->pend)) {
 			/* defer SCO setup until mode change completed */
@@ -969,12 +974,42 @@ void hci_conn_enter_active_mode(struct hci_conn *conn, __u8 force_active)
 	}
 
 timer:
+// +s LGBT_COMMON_FUNCTION_NO_SNIFF_WHEN_OPEN_SCO - teddy.ju
+	BT_DBG("sco_last_tx : %ld, sco_num : %d", hdev->sco_last_tx, hdev->conn_hash.sco_num);
+	if(hdev->conn_hash.sco_num && conn->mode!= HCI_CM_SNIFF){
+		BT_DBG("Don't need timer when open sco");
+		del_timer(&conn->idle_timer);
+		return;
+	}
+	
 	if (hdev->idle_timeout > 0) {
 		mod_timer(&conn->idle_timer,
 			jiffies + msecs_to_jiffies(hdev->idle_timeout));
 		wake_lock(&conn->idle_lock);
 	}
 }
+
+// +s LGBT_COMMON_FUNCTION_NO_SNIFF_WHEN_OPEN_SCO - teddy.ju
+void hci_conn_enter_active_mode_no_timer(struct hci_conn *conn)
+{
+	struct hci_dev *hdev = conn->hdev;
+
+	BT_DBG("conn %p mode %d", conn, conn->mode);
+	BT_DBG("sco_last_tx : %ld, sco_num : %d", hdev->sco_last_tx, hdev->conn_hash.sco_num);
+
+	if (test_bit(HCI_RAW, &hdev->flags))
+		return;
+	else if (conn->mode != HCI_CM_SNIFF)
+		return;
+
+	if (!test_and_set_bit(HCI_CONN_MODE_CHANGE_PEND, &conn->pend)) {
+		struct hci_cp_exit_sniff_mode cp;		
+		cp.handle = cpu_to_le16(conn->handle);		
+		del_timer(&conn->idle_timer);
+		hci_send_cmd(hdev, HCI_OP_EXIT_SNIFF_MODE, sizeof(cp), &cp);
+	}
+}
+// +e LGBT_COMMON_FUNCTION_NO_SNIFF_WHEN_OPEN_SCO - teddy.ju
 
 static inline void hci_conn_stop_rssi_timer(struct hci_conn *conn)
 {

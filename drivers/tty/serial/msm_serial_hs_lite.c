@@ -79,6 +79,8 @@ struct msm_hsl_port {
 #define is_console(port)	((port)->cons && \
 				(port)->cons->index == (port)->line)
 
+static bool isShutdown;	 	
+
 static const unsigned int regmap[][UARTDM_LAST] = {
 	[UARTDM_VERSION_11_13] = {
 		[UARTDM_MR1] = UARTDM_MR1_ADDR,
@@ -347,6 +349,17 @@ static void handle_rx(struct uart_port *port, unsigned int misr)
 
 		sr = msm_hsl_read(port, regmap[vid][UARTDM_SR]);
 		if ((sr & UARTDM_SR_RXRDY_BMSK) == 0) {
+/* LGE_CHANGE
+ * In order to avoid old_snap_state be negative,
+ * workaround need to be made.
+ * This seems like a bug by QCT occuring in higher bit-rate (460800 bps)
+ * 2012-03-05, chaeuk.lee@lge.com
+ */
+#if defined(CONFIG_LGE_FELICA) || defined(CONFIG_LGE_NFC_SONY_CXD2235AGG)
+			if (msm_hsl_port->old_snap_state < count)
+				msm_hsl_port->old_snap_state = 0;
+			else
+#endif /* CONFIG_LGE_FELICA */
 			msm_hsl_port->old_snap_state -= count;
 			break;
 		}
@@ -516,6 +529,11 @@ static void msm_hsl_reset(struct uart_port *port)
 {
 	unsigned int vid = UART_TO_MSM(port)->ver_id;
 
+	if( !isShutdown ) // gate a unclocked register
+	{
+		return ;
+	}	
+	
 	/* reset everything */
 	msm_hsl_write(port, RESET_RX, regmap[vid][UARTDM_CR]);
 	msm_hsl_write(port, RESET_TX, regmap[vid][UARTDM_CR]);
@@ -579,6 +597,11 @@ static void msm_hsl_set_baud_rate(struct uart_port *port, unsigned int baud)
 	unsigned int vid;
 	struct msm_hsl_port *msm_hsl_port = UART_TO_MSM(port);
 
+	if( !isShutdown ) // gate a unclocked register
+	{
+	    	return ;
+	}
+	
 	switch (baud) {
 	case 300:
 		baud_code = UARTDM_CSR_75;
@@ -702,7 +725,7 @@ static int msm_hsl_startup(struct uart_port *port)
 	unsigned int vid;
 	int ret;
 	unsigned long flags;
-
+	
 	snprintf(msm_hsl_port->name, sizeof(msm_hsl_port->name),
 		 "msm_serial_hsl%d", port->line);
 
@@ -770,6 +793,9 @@ static int msm_hsl_startup(struct uart_port *port)
 		printk(KERN_ERR "%s: failed to request_irq\n", __func__);
 		return ret;
 	}
+	
+	isShutdown = 1 ; // use for shudown flag
+	
 	return 0;
 }
 
@@ -779,7 +805,9 @@ static void msm_hsl_shutdown(struct uart_port *port)
 	struct platform_device *pdev = to_platform_device(port->dev);
 	const struct msm_serial_hslite_platform_data *pdata =
 					pdev->dev.platform_data;
-
+	
+	isShutdown = 0 ; // use for shudown flag
+	
 	msm_hsl_port->imr = 0;
 	/* disable interrupts */
 	msm_hsl_write(port, 0, regmap[msm_hsl_port->ver_id][UARTDM_IMR]);
@@ -815,6 +843,17 @@ static void msm_hsl_set_termios(struct uart_port *port,
 	/* calculate and set baud rate */
 	baud = uart_get_baud_rate(port, termios, old, 300, 460800);
 
+/* 20111205, chaeuk.lee@lge.com, Add IrDA UART [START]
+ * Set UART for IrDA
+ * 0x03 : UART_IRDA | RX_INVERT
+ * [CAUTION] UARTDM register must be set AFTER UARTDM clock has been set
+ */
+#ifdef CONFIG_LGE_IRDA
+	if(port->line == 1){
+		msm_hsl_write(port, 0x03, UARTDM_IRDA_ADDR);
+	}
+#endif
+/* 20111205, chaeuk.lee@lge.com, Add IrDA UART [END] */
 	msm_hsl_set_baud_rate(port, baud);
 
 	vid = UART_TO_MSM(port)->ver_id;
@@ -1510,6 +1549,8 @@ static int msm_serial_hsl_resume(struct device *dev)
 			disable_irq_wake(port->irq);
 
 		if (is_console(port)) {
+			/* LGE sangyup.kim@lge.com add 1ms delay to avoid corruption in console message */
+			mdelay(1);
 			struct msm_hsl_port *msm_hsl_port = UART_TO_MSM(port);
 			if (!(msm_hsl_port->cons_flags & CON_ENABLED) ||
 			    mako_console_stopped())

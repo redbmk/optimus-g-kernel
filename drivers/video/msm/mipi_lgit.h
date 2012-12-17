@@ -34,4 +34,15 @@
 
 int mipi_lgit_device_register(struct msm_panel_info *pinfo,
 					u32 channel, u32 panel);
+
+// daewoo.kwak@lge.com 2012-01-18 add the on, off function.
+int mipi_lgit_lcd_on(struct platform_device *pdev);
+int mipi_lgit_lcd_off(struct platform_device *pdev);
+
+int mipi_lgit_lcd_off_for_shutdown(void);
+//LGE_UPDATE_S hojin.ryu@lge.com 20120625
+int mipi_lgit_lcd_ief_off(void);
+int mipi_lgit_lcd_ief_on(void);
+//LGE_UPDATE_E hojin.ryu@lge.com 20120625
+
 #endif  /* MIPI_LGIT_H */

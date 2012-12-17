@@ -47,6 +47,9 @@
 #include <linux/slab.h>
 #include <linux/kernel.h>
 #include <linux/pm_runtime.h>
+#ifdef CONFIG_LGE_EMS_CH
+#include <mach/hsic_debug_ch.h>
+#endif
 
 #define DRIVER_VERSION		"22-Aug-2005"
 
@@ -159,6 +162,13 @@ int usbnet_get_endpoints(struct usbnet *dev, struct usb_interface *intf)
 	dev->out = usb_sndbulkpipe (dev->udev,
 			out->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK);
 	dev->status = status;
+#ifdef LG_FW_HSIC_EMS_DEBUG /* secheol.pyo - endpoint logging */
+	printk("[%s] usbnet bulk_in_Addr = %d, bulk_out_Addr = %d,  bulk_in_endpoint = %d , bulk_out_endpoint = %d \n", __func__,
+		in->desc.bEndpointAddress,
+		out->desc.bEndpointAddress,
+		in->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK,
+		out->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK);
+#endif /* secheol.pyo - endpoint logging */
 	return 0;
 }
 EXPORT_SYMBOL_GPL(usbnet_get_endpoints);
@@ -685,8 +695,10 @@ static void usbnet_terminate_urbs(struct usbnet *dev)
 				  "waited for %d urb completions\n", temp);
 	}
 	set_current_state(TASK_RUNNING);
+	mutex_lock( &dev->phy_mutex) ;
 	dev->wait = NULL;
 	remove_wait_queue(&unlink_wakeup, &wait);
+	mutex_unlock( &dev->phy_mutex ) ;
 }
 
 int usbnet_stop (struct net_device *net)
@@ -1072,6 +1084,7 @@ static void tx_complete (struct urb *urb)
 	}
 
 	usb_autopm_put_interface_async(dev->intf);
+	entry->state = tx_done;
 	(void) defer_bh(dev, skb, &dev->txq, tx_done);
 }
 
@@ -1240,7 +1253,10 @@ static void usbnet_bh (unsigned long param)
 	// waiting for all pending urbs to complete?
 	if (dev->wait) {
 		if ((dev->txq.qlen + dev->rxq.qlen + dev->done.qlen) == 0) {
+		    mutex_lock( &dev->phy_mutex ) ;
+		    if( dev->wait )
 			wake_up (dev->wait);
+		    mutex_unlock( &dev->phy_mutex ) ;
 		}
 
 	// or are we maybe short a few urbs?

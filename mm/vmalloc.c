@@ -1285,6 +1285,8 @@ static void setup_vmalloc_vm(struct vm_struct *vm, struct vmap_area *va,
 	vm->flags = flags;
 	vm->addr = (void *)va->va_start;
 	vm->size = va->va_end - va->va_start;
+    // ADD_PID_IN_VMALLOCINFO
+    vm->pid = current->pid;
 	vm->caller = caller;
 	va->vm = vm;
 	va->flags |= VM_VM_AREA;
@@ -1591,6 +1593,8 @@ static void *__vmalloc_area_node(struct vm_struct *area, gfp_t gfp_mask,
 	}
 	area->pages = pages;
 	area->caller = caller;
+    // ADD_PID_IN_VMALLOCINFO
+    area->pid = current->pid;
 	if (!area->pages) {
 		remove_vm_area(area->addr);
 		kfree(area);
@@ -2573,8 +2577,9 @@ static int s_show(struct seq_file *m, void *p)
 {
 	struct vm_struct *v = p;
 
-	seq_printf(m, "0x%p-0x%p %7ld",
-		v->addr, v->addr + v->size, v->size);
+    // ADD_PID_IN_VMALLOCINFO
+	seq_printf(m, "0x%p-0x%p %7ld %7d",
+		v->addr, v->addr + v->size, v->size, v->pid);
 
 	if (v->caller)
 		seq_printf(m, " %pS", v->caller);

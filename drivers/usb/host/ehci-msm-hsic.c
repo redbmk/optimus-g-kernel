@@ -79,6 +79,9 @@ struct msm_hsic_hcd {
 	int			peripheral_status_irq;
 	int			wakeup_irq;
 	int			wakeup_gpio;
+	int			err_fatal;
+	int			ready_gpio;
+	int			pbl_gpio;
 	bool			wakeup_irq_enabled;
 	atomic_t		pm_usage_cnt;
 	uint32_t		bus_perf_client;
@@ -96,6 +99,7 @@ struct msm_hsic_hcd {
 	int			resume_again;
 };
 
+extern int subsystem_restart(const char *name);
 struct msm_hsic_hcd *__mehci;
 
 static bool debug_bus_voting_enabled = true;
@@ -398,6 +402,9 @@ static int ulpi_read(struct msm_hsic_hcd *mehci, u32 reg)
 				readl_relaxed(USB_PORTSC),
 				readl_relaxed(USB_USBCMD),
 				readl_relaxed(USB_FRINDEX));
+
+		if(system_state == SYSTEM_RUNNING)
+			subsystem_restart("external_modem");
 
 		/*frame counter increments afte 125us*/
 		udelay(130);
@@ -765,6 +772,8 @@ static int msm_hsic_resume(struct msm_hsic_hcd *mehci)
 	temp &= ~ASYNC_INTR_CTRL;
 	temp &= ~ULPI_STP_CTRL;
 	writel_relaxed(temp, USB_USBCMD);
+
+	dbg_log_event(NULL, "Set RS", readl_relaxed(USB_USBCMD));
 
 	if (!(readl_relaxed(USB_PORTSC) & PORTSC_PHCD))
 		goto skip_phy_resume;
@@ -1552,6 +1561,25 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 		dev_dbg(mehci->dev, "wakeup_irq: %d\n", mehci->wakeup_irq);
 	}
 
+	res = platform_get_resource_byname(pdev,
+			IORESOURCE_IO, "MDM2AP_PBLRDY");
+	if (res) {
+	    dev_dbg(mehci->dev, "pblrdy: %d\n", res->start);
+	    mehci->pbl_gpio = res->start;
+	}
+
+	res = platform_get_resource_byname(pdev,
+			IORESOURCE_IO, "AP2MDM_HSICRDY");
+	if (res) {
+		dev_dbg(mehci->dev, "AP2MDM_HSICRDY: %d\n", res->start);
+		mehci->ready_gpio = res->start;
+	}
+	res = platform_get_resource_byname(pdev,
+			IORESOURCE_IO, "MDM2AP_ERRFATAL");
+	if (res) {
+		dev_dbg(mehci->dev, "MDM2AP_ERRFATAL: %d\n", res->start);
+		mehci->err_fatal = res->start;
+	}
 	ret = msm_hsic_init_clocks(mehci, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "unable to initialize clocks\n");

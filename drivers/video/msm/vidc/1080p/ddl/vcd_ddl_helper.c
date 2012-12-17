@@ -182,6 +182,16 @@ u32 ddl_decoder_dpb_transact(struct ddl_decoder_data *decoder,
 						in_out_frame->vcd_frm.virtual,
 						decoder->meta_data_offset,
 						decoder->suffix);
+					/* 2012.09.13, hoeyon.jang@lge.com {++ */
+					/* wrong meta_data_offset(>= alloc_len) cause kenel crash */
+					if(unlikely((u32)in_out_frame->vcd_frm.alloc_len <= 
+								((u32)decoder->meta_data_offset+decoder->suffix)))
+					{
+						//vcd_status = VCD_ERR_BAD_POINTER;
+						DDL_MSG_ERROR("META OFFSET IS WRONG");
+						break;
+					} 
+					/* 2012.09.13, hoyeon.jang@lge.com }++*/
 					msm_ion_do_cache_op(
 						ddl_context->video_ion_client,
 						in_out_frame->vcd_frm.\

@@ -105,9 +105,8 @@ static int acm_port_setup(struct usb_configuration *c)
 	int port_idx=0;
 	int i=0;
 
-	pr_debug("%s: no_acm_tty_ports:%u no_acm_sdio_ports: %u nr_acm_ports:%u\n",
-			__func__, no_acm_tty_ports, no_acm_sdio_ports,
-				nr_acm_ports);
+	pr_debug("%s: no_acm_tty_ports:%u no_acm_sdio_ports: %u no_acm_hsic_sports:%u nr_acm_ports:%u\n",
+			__func__, no_acm_tty_ports, no_acm_sdio_ports, no_acm_hsic_sports, nr_acm_ports);
 
 	if (no_acm_tty_ports)
 		ret = gserial_setup(c->cdev->gadget, no_acm_tty_ports);
@@ -723,6 +722,57 @@ static void acm_connect(struct gserial *port)
 	acm_notify_serial_state(acm);
 }
 
+unsigned int acm_get_dtr(struct gserial *port)
+{
+	struct f_acm		*acm = port_to_acm(port);
+
+	if (acm->port_handshake_bits & ACM_CTRL_DTR)
+		return 1;
+	else
+		return 0;
+}
+
+unsigned int acm_get_rts(struct gserial *port)
+{
+	struct f_acm		*acm = port_to_acm(port);
+
+	if (acm->port_handshake_bits & ACM_CTRL_RTS)
+		return 1;
+	else
+		return 0;
+}
+
+unsigned int acm_send_carrier_detect(struct gserial *port, unsigned int yes)
+{
+	struct f_acm		*acm = port_to_acm(port);
+	u16			state;
+
+	pr_info("%s : ACM_CTRL_DCD is %s\n", __func__, (yes ? "yes" : "no"));
+	state = acm->serial_state;
+	state &= ~ACM_CTRL_DCD;
+	if (yes)
+		state |= ACM_CTRL_DCD;
+
+	acm->serial_state = state;
+	return acm_notify_serial_state(acm);
+
+}
+
+unsigned int acm_send_ring_indicator(struct gserial *port, unsigned int yes)
+{
+	struct f_acm		*acm = port_to_acm(port);
+	u16			state;
+
+	state = acm->serial_state;
+	state &= ~ACM_CTRL_RI;
+	if (yes)
+		state |= ACM_CTRL_RI;
+
+	acm->serial_state = state;
+	return acm_notify_serial_state(acm);
+
+}
+
 static void acm_disconnect(struct gserial *port)
 {
 	struct f_acm		*acm = port_to_acm(port);
@@ -834,8 +884,11 @@ acm_bind(struct usb_configuration *c, struct usb_function *f)
 
 		/* copy descriptors */
 		f->hs_descriptors = usb_copy_descriptors(acm_hs_function);
+
+#if !defined(CONFIG_MACH_LGE)
 		if (!f->hs_descriptors)
 			goto fail;
+#endif
 	}
 	if (gadget_is_superspeed(c->cdev->gadget)) {
 		acm_ss_in_desc.bEndpointAddress =
@@ -889,7 +942,10 @@ acm_unbind(struct usb_configuration *c, struct usb_function *f)
 	if (gadget_is_superspeed(c->cdev->gadget))
 		usb_free_descriptors(f->ss_descriptors);
 	usb_free_descriptors(f->descriptors);
-	gs_free_req(acm->notify, acm->notify_req);
+
+	if (acm->notify_req)
+		gs_free_req(acm->notify, acm->notify_req);
+
 	kfree(acm->port.func.name);
 	kfree(acm);
 }
@@ -960,6 +1016,12 @@ int acm_bind_config(struct usb_configuration *c, u8 port_num)
 	acm->transport = gacm_ports[port_num].transport;
 
 	acm->port.connect = acm_connect;
+
+	acm->port.get_dtr = acm_get_dtr;
+	acm->port.get_rts = acm_get_rts;
+	acm->port.send_carrier_detect = acm_send_carrier_detect;
+	acm->port.send_ring_indicator = acm_send_ring_indicator;
+
 	acm->port.disconnect = acm_disconnect;
 	acm->port.send_break = acm_send_break;
 	acm->port.send_modem_ctrl_bits = acm_send_modem_ctrl_bits;

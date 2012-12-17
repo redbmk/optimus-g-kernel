@@ -107,7 +107,9 @@ static irqreturn_t msm_csid_irq(int irq_num, void *data)
 	uint32_t irq;
 	struct csid_device *csid_dev = data;
 	irq = msm_camera_io_r(csid_dev->base + CSID_IRQ_STATUS_ADDR);
-	CDBG("%s CSID%d_IRQ_STATUS_ADDR = 0x%x\n",
+//LGE_UPDATE_S 0828 add messages to debug timeout error yt.jeon@lge.com
+	pr_err("%s CSID%d_IRQ_STATUS_ADDR = 0x%x\n",
+//LGE_UPDATE_E 0828 add messages to debug timeout error yt.jeon@lge.com
 		 __func__, csid_dev->pdev->id, irq);
 	if (irq & (0x1 << CSID_RST_DONE_IRQ_BITSHIFT))
 			complete(&csid_dev->reset_complete);

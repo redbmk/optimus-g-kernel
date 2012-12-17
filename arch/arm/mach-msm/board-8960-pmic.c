@@ -426,7 +426,7 @@ static struct pm8921_bms_platform_data pm8921_bms_pdata __devinitdata = {
 	.r_sense			= 10,
 	.v_cutoff			= 3400,
 	.max_voltage_uv			= MAX_VOLTAGE_MV * 1000,
-	.rconn_mohm			= 18,
+	.rconn_mohm			= 30,
 	.shutdown_soc_valid_limit	= 20,
 	.adjust_soc_low_threshold	= 25,
 	.chg_term_ua			= CHG_TERM_MA * 1000,
@@ -442,6 +442,8 @@ static struct pm8921_bms_platform_data pm8921_bms_pdata __devinitdata = {
  */
 #define PM8XXX_PWM_CHANNEL_NONE		-1
 
+
+#if !defined(CONFIG_LGE_PM)
 static struct led_info pm8921_led_info_liquid[] = {
 	{
 		.name		= "led:red",
@@ -549,6 +551,7 @@ static struct pm8xxx_led_platform_data pm8xxx_leds_pdata = {
 		.configs = pm8921_led_configs,
 		.num_configs = ARRAY_SIZE(pm8921_led_configs),
 };
+#endif
 
 static struct pm8xxx_ccadc_platform_data pm8xxx_ccadc_pdata = {
 	.r_sense		= 10,
@@ -578,7 +581,9 @@ static struct pm8921_platform_data pm8921_platform_data __devinitdata = {
 	.charger_pdata		= &pm8921_chg_pdata,
 	.bms_pdata		= &pm8921_bms_pdata,
 	.adc_pdata		= &pm8xxx_adc_pdata,
+	#if !defined(CONFIG_LGE_PM)
 	.leds_pdata		= &pm8xxx_leds_pdata,
+	#endif
 	.ccadc_pdata		= &pm8xxx_ccadc_pdata,
 	.pwm_pdata		= &pm8xxx_pwm_pdata,
 };
@@ -600,7 +605,9 @@ void __init msm8960_init_pmic(void)
 
 	if (machine_is_msm8960_liquid()) {
 		pm8921_platform_data.keypad_pdata = &keypad_data_liquid;
+		#if !defined(CONFIG_LGE_PM)
 		pm8921_platform_data.leds_pdata = &pm8xxx_leds_pdata_liquid;
+		#endif
 		pm8921_platform_data.bms_pdata->battery_type = BATT_DESAY;
 	} else if (machine_is_msm8960_mtp()) {
 		pm8921_platform_data.bms_pdata->battery_type = BATT_PALLADIUM;

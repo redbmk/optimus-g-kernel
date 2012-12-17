@@ -180,6 +180,10 @@ SYSCALL_DEFINE3(setpriority, int, which, int, who, int, niceval)
 
 	if (which > PRIO_USER || which < PRIO_PROCESS)
 		goto out;
+	if (!ccs_capable(CCS_SYS_NICE)) {
+		error = -EPERM;
+		goto out;
+	}
 
 	/* normalize: avoid signed division (rounding problems) */
 	error = -ESRCH;
@@ -323,6 +327,15 @@ void kernel_restart_prepare(char *cmd)
 	syscore_shutdown();
 }
 
+// LGE_UPDATE_S When device shut down, need to send lcd off command by jungbeom.shim@lge.com
+#ifdef CONFIG_MACH_LGE
+#ifdef CONFIG_FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT
+extern int mipi_lgit_lcd_off_for_shutdown(void);
+#elif defined(CONFIG_FB_MSM_MIPI_HITACHI_VIDEO_HD_PT)
+extern int mipi_hitachi_lcd_off_for_shutdown(void);
+#endif
+#endif
+// LGE_UPDATE_E
 /**
  *	register_reboot_notifier - Register function to be called at reboot time
  *	@nb: Info about notifier function to be called
@@ -370,6 +383,15 @@ void kernel_restart(char *cmd)
 	else
 		printk(KERN_EMERG "Restarting system with command '%s'.\n", cmd);
 	kmsg_dump(KMSG_DUMP_RESTART);
+// LGE_UPDATE_S When device shut down, need to send lcd off command by jungbeom.shim@lge.com
+#ifdef CONFIG_MACH_LGE
+#ifdef CONFIG_FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT
+	mipi_lgit_lcd_off_for_shutdown();
+#elif defined(CONFIG_FB_MSM_MIPI_HITACHI_VIDEO_HD_PT)
+	mipi_hitachi_lcd_off_for_shutdown();
+#endif
+#endif
+// LGE_UPDATE_E
 	machine_restart(cmd);
 }
 EXPORT_SYMBOL_GPL(kernel_restart);
@@ -410,6 +432,15 @@ void kernel_power_off(void)
 		pm_power_off_prepare();
 	disable_nonboot_cpus();
 	syscore_shutdown();
+// LGE_UPDATE_S When device shut down, need to send lcd off command by jungbeom.shim@lge.com
+#ifdef CONFIG_MACH_LGE
+#ifdef CONFIG_FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT
+		mipi_lgit_lcd_off_for_shutdown();
+#elif defined(CONFIG_FB_MSM_MIPI_HITACHI_VIDEO_HD_PT)
+		mipi_hitachi_lcd_off_for_shutdown();
+#endif
+#endif
+// LGE_UPDATE_E
 	printk(KERN_EMERG "Power down.\n");
 	kmsg_dump(KMSG_DUMP_POWEROFF);
 	machine_power_off();
@@ -443,6 +474,8 @@ SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
 			magic2 != LINUX_REBOOT_MAGIC2B &&
 	                magic2 != LINUX_REBOOT_MAGIC2C))
 		return -EINVAL;
+	if (!ccs_capable(CCS_SYS_REBOOT))
+		return -EPERM;
 
 	/*
 	 * If pid namespaces are enabled and the current task is in a child
@@ -1289,6 +1322,8 @@ SYSCALL_DEFINE2(sethostname, char __user *, name, int, len)
 
 	if (len < 0 || len > __NEW_UTS_LEN)
 		return -EINVAL;
+	if (!ccs_capable(CCS_SYS_SETHOSTNAME))
+		return -EPERM;
 	down_write(&uts_sem);
 	errno = -EFAULT;
 	if (!copy_from_user(tmp, name, len)) {
@@ -1339,6 +1374,8 @@ SYSCALL_DEFINE2(setdomainname, char __user *, name, int, len)
 		return -EPERM;
 	if (len < 0 || len > __NEW_UTS_LEN)
 		return -EINVAL;
+	if (!ccs_capable(CCS_SYS_SETHOSTNAME))
+		return -EPERM;
 
 	down_write(&uts_sem);
 	errno = -EFAULT;

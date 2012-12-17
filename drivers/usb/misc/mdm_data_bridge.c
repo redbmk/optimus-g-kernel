@@ -20,6 +20,9 @@
 #include <linux/uaccess.h>
 #include <linux/ratelimit.h>
 #include <mach/usb_bridge.h>
+#ifdef CONFIG_LGE_EMS_CH
+#include <mach/hsic_debug_ch.h>
+#endif
 
 #define MAX_RX_URBS			50
 #define RMNET_RX_BUFSIZE		2048
@@ -136,7 +139,10 @@ static inline  bool rx_halted(struct data_bridge *dev)
 
 static inline bool rx_throttled(struct bridge *brdg)
 {
-	return test_bit(RX_THROTTLED, &brdg->flags);
+	if (brdg)
+		return test_bit(RX_THROTTLED, &brdg->flags);
+	else
+		return 0;
 }
 
 int data_bridge_unthrottle_rx(unsigned int id)
@@ -169,10 +175,14 @@ static void data_bridge_process_rx(struct work_struct *work)
 
 	struct bridge		*brdg = dev->brdg;
 
-	if (!brdg || !brdg->ops.send_pkt || rx_halted(dev))
-		return;
-
 	while (!rx_throttled(brdg) && (skb = skb_dequeue(&dev->rx_done))) {
+		if (!brdg) {
+			print_hex_dump(KERN_INFO, "dun data:", 0, 1, 1, skb->data, skb->len, false);
+			dev_kfree_skb_any(skb);
+			continue;
+		}
+
+
 		dev->to_host++;
 		info = (struct timestamp_info *)skb->cb;
 		info->rx_done_sent = get_timestamp();
@@ -341,7 +351,6 @@ int data_bridge_open(struct bridge *brdg)
 	dev->rx_throttled_cnt = 0;
 	dev->rx_unthrottled_cnt = 0;
 
-	queue_work(dev->wq, &dev->process_rx_w);
 
 	return 0;
 }
@@ -586,8 +595,7 @@ static int data_bridge_resume(struct data_bridge *dev)
 		dev->txurb_drp_cnt--;
 	}
 
-	if (dev->brdg)
-		queue_work(dev->wq, &dev->process_rx_w);
+	queue_work(dev->wq, &dev->process_rx_w);
 
 	return 0;
 }
@@ -675,6 +683,13 @@ static int data_bridge_probe(struct usb_interface *iface,
 	dev->bulk_out = usb_sndbulkpipe(dev->udev,
 		bulk_out->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK);
 
+#ifdef LG_FW_HSIC_EMS_DEBUG/* secheol.pyo - endpoint logging */
+	printk("[%s] data_bridge , Bulk in_Addr = %d, Bulk out_Addr = %d, bulk_in_endpoint = %d , bulk_out_endpoint = %d \n", __func__,
+		bulk_in->desc.bEndpointAddress,
+		bulk_out->desc.bEndpointAddress,
+		bulk_in->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK,
+		bulk_out->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK); 
+#endif /* secheol.pyo - endpoint logging */
 	usb_set_intfdata(iface, dev);
 
 	INIT_WORK(&dev->kevent, defer_kevent);
@@ -684,6 +699,7 @@ static int data_bridge_probe(struct usb_interface *iface,
 
 	/*allocate list of rx urbs*/
 	data_bridge_prepare_rx(dev);
+	queue_work(dev->wq, &dev->process_rx_w);
 
 	platform_device_add(dev->pdev);
 

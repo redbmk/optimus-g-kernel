@@ -45,6 +45,10 @@
 
 #define BNEP_TX_QUEUE_LEN 20
 
+//+s QCT_BT_COMMON_BUGFIX_BNEP_FAIL_WITH_MOTOROLA_MODULE - Disabling the FILTER_MULTI_ADDR_SET packet for Bluetooth Tethering. [jaeeun.pyo@lge.com] 2012.08.23
+#undef CONFIG_BT_BNEP_MC_FILTER
+//+e QCT_BT_COMMON_BUGFIX_BNEP_FAIL_WITH_MOTOROLA_MODULE
+
 static int bnep_net_open(struct net_device *dev)
 {
 	netif_start_queue(dev);

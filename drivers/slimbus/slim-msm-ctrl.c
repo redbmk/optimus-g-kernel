@@ -486,6 +486,7 @@ static irqreturn_t msm_slim_interrupt(int irq, void *d)
 		mb();
 		if (dev->wr_comp)
 			complete(dev->wr_comp);
+		else pr_err("spurious intrrupt received");
 	}
 	if (stat & MGR_INT_RX_MSG_RCVD) {
 		u32 rx_buf[10];
@@ -887,6 +888,8 @@ static int msm_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 		mc == SLIM_MSG_MC_BEGIN_RECONFIGURATION)
 		dev->reconf_busy = true;
 	dev->wr_comp = &done;
+	if (txn->mc == SLIM_USR_MC_GENERIC_ACK)
+		pr_err("generic ack:0x%x, 0x%x", pbuf[0], pbuf[1]);
 	msm_send_msg_buf(ctrl, pbuf, txn->rl);
 	timeout = wait_for_completion_timeout(&done, HZ);
 	if (!timeout)
@@ -964,6 +967,7 @@ retry_laddr:
 	buf[2] = laddr;
 
 	dev->wr_comp = &done;
+	pr_err("send laddr message: 0x%x, 0x%x, 0x%x", buf[0], buf[1], buf[2]); //[AUDIO_BSP] 2012.07.26 sehwan.lee@lge.com Qualcomm debugging log(SR00926190)
 	ret = msm_send_msg_buf(ctrl, buf, 9);
 	timeout = wait_for_completion_timeout(&done, HZ);
 	if (!timeout)
@@ -1093,6 +1097,8 @@ static int msm_sat_define_ch(struct msm_slim_sat *sat, u8 *buf, u8 len, u8 mc)
 		/* part of grp. activating/removing 1 will take care of rest */
 		ret = slim_control_ch(&sat->satcl, sat->satch[i].chanh, oper,
 					false);
+		pr_err("SAT oper:%d grp start:%d, ret:%d", oper,
+				sat->satch[i].chan, ret);
 		if (!ret) {
 			for (i = 5; i < len; i++) {
 				int j;
@@ -1168,10 +1174,13 @@ static int msm_sat_define_ch(struct msm_slim_sat *sat, u8 *buf, u8 len, u8 mc)
 			return ret;
 
 		/* part of group so activating 1 will take care of rest */
-		if (mc == SLIM_USR_MC_DEF_ACT_CHAN)
+		if (mc == SLIM_USR_MC_DEF_ACT_CHAN) {
 			ret = slim_control_ch(&sat->satcl,
 					chh[0],
 					SLIM_CH_ACTIVATE, false);
+			pr_err("SAT activate grp start:%d, ret:%d", (int)buf[8],
+					ret);
+		}
 	}
 	return ret;
 }
@@ -1213,6 +1222,7 @@ static void msm_slim_rxwq(struct msm_slim_ctrl *dev)
 
 				sat->satcl.laddr = laddr;
 				msm_sat_enqueue(sat, (u32 *)buf, len);
+				pr_err("queue master capability");
 				queue_work(sat->wq, &sat->wd);
 			}
 			if (ret)
@@ -1249,6 +1259,7 @@ static void slim_sat_rxprocess(struct work_struct *work)
 	struct msm_slim_sat *sat = container_of(work, struct msm_slim_sat, wd);
 	struct msm_slim_ctrl *dev = sat->dev;
 	u8 buf[40];
+	int items = 0;
 
 	while ((msm_sat_dequeue(sat, buf)) != -ENODATA) {
 		struct slim_msg_txn txn;
@@ -1260,6 +1271,7 @@ static void slim_sat_rxprocess(struct work_struct *work)
 		u8 tid;
 		u8 wbuf[8];
 		int i, retries = 0;
+		items++;
 		txn.mt = SLIM_MSG_MT_SRC_REFERRED_USER;
 		txn.dt = SLIM_MSG_DEST_LOGICALADDR;
 		txn.ec = 0;
@@ -1314,6 +1326,7 @@ static void slim_sat_rxprocess(struct work_struct *work)
 					msm_slim_put_ctrl(dev);
 					sat->pending_capability = false;
 				}
+				pr_err("Got satellite report");
 				continue;
 			}
 			/* send a Manager capability msg */
@@ -1323,6 +1336,7 @@ static void slim_sat_rxprocess(struct work_struct *work)
 				else
 					continue;
 			}
+			pr_err("adding sat dev:%d", sat->satcl.laddr);
 			ret = slim_add_device(&dev->ctrl, &sat->satcl);
 			if (ret) {
 				dev_err(dev->dev,
@@ -1357,6 +1371,7 @@ send_capability:
 							ret);
 				}
 			} else {
+				pr_info("slim: sent master capability");
 				sat->sent_capability = true;
 			}
 			break;
@@ -1396,6 +1411,7 @@ send_capability:
 		case SLIM_USR_MC_RECONFIG_NOW:
 			tid = buf[3];
 			gen_ack = true;
+			pr_debug("SAT:LA:%x reconf req", sat->satcl.laddr);
 			ret = slim_reconfigure_now(&sat->satcl);
 			for (i = 0; i < sat->nsatch; i++) {
 				struct msm_sat_chan *sch = &sat->satch[i];
@@ -1415,6 +1431,7 @@ send_capability:
 					sch->req_def--;
 				}
 			}
+			pr_debug("SAT:LA:%x reconf rsp ret:%d", sat->satcl.laddr,ret);
 			if (sat->pending_reconf) {
 				msm_slim_put_ctrl(dev);
 				sat->pending_reconf = false;
@@ -1443,6 +1460,8 @@ send_capability:
 			txn.len = 2;
 			txn.wbuf = wbuf;
 			gen_ack = true;
+			pr_err("SAT connect MC:0x%x,LA:0x%x", txn.mc,
+					sat->satcl.laddr);
 			ret = msm_xfer_msg(&dev->ctrl, &txn);
 			break;
 		case SLIM_USR_MC_DISCONNECT_PORT:
@@ -1455,8 +1474,12 @@ send_capability:
 			txn.mt = SLIM_MSG_MT_CORE;
 			txn.wbuf = wbuf;
 			gen_ack = true;
+			pr_err("SAT disconnect LA:0x%x", sat->satcl.laddr);
 			ret = msm_xfer_msg(&dev->ctrl, &txn);
+			break;
 		default:
+			pr_debug("SAT:%x BAD event:mc:%x,mt:%x", sat->satcl.laddr,
+					mc, mt);
 			break;
 		}
 		if (!gen_ack) {
@@ -1479,6 +1502,11 @@ send_capability:
 		msm_xfer_msg(&dev->ctrl, &txn);
 		if (satv >= 0)
 			msm_slim_put_ctrl(dev);
+	}
+	if (!items) {
+		if (sat)
+			pr_debug("SAT:%x WQ got event, nothing in queue",
+					sat->satcl.laddr);
 	}
 }
 

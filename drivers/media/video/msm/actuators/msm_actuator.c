@@ -167,6 +167,10 @@ static int32_t msm_actuator_write_focus(
 	int16_t next_lens_pos = 0;
 	uint16_t damping_code_step = 0;
 	uint16_t wait_time = 0;
+/* LGE_CHANGE_S, AF offset enable, 2012-09-28, sungmin.woo@lge.com */
+       uint16_t AF_offset_direction=0;
+	uint16_t AF_offset = 0;
+/* LGE_CHANGE_E, AF offset enable, 2012-09-28, sungmin.woo@lge.com */
 
 	damping_code_step = damping_params->damping_step;
 	wait_time = damping_params->damping_delay;
@@ -208,6 +212,35 @@ static int32_t msm_actuator_write_focus(
 		}
 		curr_lens_pos = next_lens_pos;
 	}
+/* LGE_CHANGE_S, AF offset enable, 2012-09-28, sungmin.woo@lge.com */
+
+			printk("#### code_boundary : %d, a_ctrl->af_status = %d ####\n", code_boundary, a_ctrl->af_status);
+			if((a_ctrl->af_status==6)  && (a_ctrl->AF_defocus_enable==1))  //af_status : 6 = Last AF
+			{
+				AF_offset_direction = 0x8000 & ( a_ctrl->AF_LG_defocus_offset);
+				AF_offset = 0x7FFF & ( a_ctrl->AF_LG_defocus_offset);
+
+				if (0x8000==AF_offset_direction)
+				{
+					AF_offset = ~(AF_offset |0x8000) + 1;
+
+					if (AF_offset > 30)
+						AF_offset =0;
+
+					code_boundary = code_boundary -AF_offset;
+				}
+				else
+				{
+					if (AF_offset > 30)
+						AF_offset =0;
+					code_boundary = code_boundary + AF_offset;
+
+				}
+
+				printk("#### Last AF 1, code : %d, offset : %d !!! ####\n", code_boundary, a_ctrl->AF_LG_defocus_offset);
+			}
+			printk("#### %s : code_boundary = %d, state = %d ####\n",__func__, code_boundary, a_ctrl->af_status);
+/* LGE_CHANGE_E, AF offset enable, 2012-09-28, sungmin.woo@lge.com */
 
 	if (curr_lens_pos != code_boundary) {
 		rc = a_ctrl->func_tbl->
@@ -270,6 +303,10 @@ static int32_t msm_actuator_move_focus(
 #endif
 	CDBG("%s called, dir %d, num_steps %d\n",__func__,dir,num_steps);
 
+/* LGE_CHANGE_S, AF offset enable, 2012-09-28, sungmin.woo@lge.com */
+	a_ctrl->af_status = move_params->af_status;
+/* LGE_CHANGE_E, AF offset enable, 2012-09-28, sungmin.woo@lge.com */
+
 	if (dest_step_pos == a_ctrl->curr_step_pos)
 		return rc;
 
@@ -305,6 +342,10 @@ static int32_t msm_actuator_move_focus(
 				return rc;
 			}
 			curr_lens_pos = target_lens_pos;
+			// Start LGE_BSP_CAMERA::seongjo.kim@lge.com 2012-08-10 Add log for debug AF issue & WorkAround
+			count_actuator_write ++;
+			printk("%s count_actuator_write = %d\n",__func__,count_actuator_write);
+			// End LGE_BSP_CAMERA::seongjo.kim@lge.com 2012-08-10 Add log for debug AF issue & WorkAround
 
 #ifdef CHECK_ACT_WRITE_COUNT
 			count_actuator_write ++;
@@ -348,6 +389,13 @@ static int32_t msm_actuator_move_focus(
 #endif
 		}
 		a_ctrl->curr_step_pos = target_step_pos;
+		// Start LGE_BSP_CAMERA::seongjo.kim@lge.com 2012-08-10 Add log for debug AF issue & WorkAround
+		if (count_actuator_write > 2)
+		{
+		   printk("[ERROR][%s] count_actuator_write = %d ---> break\n",__func__,count_actuator_write);
+		   break;
+	    }
+		// End LGE_BSP_CAMERA::seongjo.kim@lge.com 2012-08-10 Add log for debug AF issue & WorkAround
 	}
 
 	rc = msm_camera_i2c_write_table_w_microdelay(&a_ctrl->i2c_client,
@@ -420,6 +468,12 @@ static int32_t msm_actuator_init_default_step_table(struct msm_actuator_ctrl_t *
 			}
 		}
 	}
+	// Start LGE_BSP_CAMERA::seongjo.kim@lge.com 2012-07-20 Apply AF calibration data
+	printk("[AF] Actuator Clibration table: not apply calibration data ==============\n");
+	for (step_index = 0; step_index < set_info->af_tuning_params.total_steps; step_index++)
+		printk("[AF] step_position_table[%d]= %d\n",step_index,
+		a_ctrl->step_position_table[step_index]);
+	// End LGE_BSP_CAMERA::seongjo.kim@lge.com 2012-07-20 Apply AF calibration data
 
 	return rc;
 }
@@ -625,11 +679,15 @@ static int32_t msm_actuator_set_default_focus(
 	struct msm_actuator_move_params_t *move_params)
 {
 	int32_t rc = 0;
+//  Start - [G][Camera][Common] youngwook.song Fix the Actuator Noise - "Tick!" - Issue by adding delay in proportion to distance of "Infinite"
+#if 1
+	uint32_t hw_damping;
+	unsigned int delay;
+	int init_pos, cur_dac, mid_dac, cur_pos;
 	CDBG("%s called\n", __func__);
 
 	if (a_ctrl->curr_step_pos != 0) {
 		rc = a_ctrl->func_tbl->actuator_move_focus(a_ctrl, move_params);
-	}
 
 	return rc;
 }

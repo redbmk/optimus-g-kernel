@@ -281,6 +281,40 @@ static struct socinfo_v1 dummy_socinfo = {
 	.format = 1,
 	.version = 1,
 };
+/* LGE_CHANGE_S, kwuiseok.kim@lge.com, 2012-07-05, HiddenMenu SMPL Counter */
+#if defined (CONFIG_LGE_PM)
+#if defined(CONFIG_MACH_APQ8064_J1D) || defined(CONFIG_MACH_APQ8064_J1KD)
+/*LGE_UPDATE_S, jongbum.kim, 20111024 -->[*/
+
+u16 *poweron_st = 0;
+uint16_t power_on_status_info_get(void)
+{
+    poweron_st = smem_alloc(SMEM_POWER_ON_STATUS_INFO, sizeof(poweron_st));
+
+    if( poweron_st == NULL ) return 0 ;
+    return *poweron_st;
+}
+EXPORT_SYMBOL(power_on_status_info_get);
+
+
+u32 *batt_info = 0;
+uint32_t battery_info_get(void)
+{
+    batt_info = smem_alloc(SMEM_BATT_INFO, sizeof(batt_info));
+
+    if (batt_info == NULL) {
+		pr_err("%s: smem_alloc returns NULL\n", __func__);
+		return 0;
+    }
+
+    return *batt_info;
+}
+EXPORT_SYMBOL(battery_info_get);
+
+/*LGE_UPDATE_E,jongbum.kim <--]*/
+#endif
+#endif
+/* LGE_CHANGE_E, kwuiseok.kim@lge.com, 2012-07-05, HiddenMenu SMPL Counter */
 
 uint32_t socinfo_get_id(void)
 {

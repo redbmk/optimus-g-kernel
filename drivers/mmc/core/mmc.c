@@ -292,6 +292,16 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 	}
 
 	card->ext_csd.rev = ext_csd[EXT_CSD_REV];
+
+	/* LGE CHANGED.. to determine 24nm eMMC or 19nm eMMC */
+	if(card->ext_csd.rev == 5)
+			printk("LGE eMMC is : %s\n", "24nm");
+	else if(card->ext_csd.rev == 6)
+			printk("LGE eMMC is : %s\n", "19nm");
+	else
+			printk("LGE does not use : %d",card->ext_csd.rev);
+	/*end LGE CHANGED  */
+
 	if (card->ext_csd.rev > 6) {
 		printk(KERN_ERR "%s: unrecognised EXT_CSD revision %d\n",
 			mmc_hostname(card->host), card->ext_csd.rev);

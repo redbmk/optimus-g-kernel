@@ -129,6 +129,14 @@ void arm_machine_flush_console(void)
 }
 #endif
 
+/* 2012-07-27 yongmin.jung@lge.com from G1 TDR (jinkyu.choi@lge.com)
+ * call pet_watchdog
+ * for avoiding apps watchdog bark while rebooting sequence
+ */
+#ifdef CONFIG_MACH_LGE
+extern void pet_watchdog(void);
+#endif
+
 /*
  * A temporary stack to use for CPU reset. This is static so that we
  * don't clobber it with the identity mapping. When running with this

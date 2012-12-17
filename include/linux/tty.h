@@ -264,7 +264,9 @@ struct tty_struct {
 	struct tty_driver *driver;
 	const struct tty_operations *ops;
 	int index;
-
+	int start_debug;
+	int ldisc_cnt;
+	int n_tty_cnt;
 	/* Protects ldisc changes: Lock tty not pty */
 	struct mutex ldisc_mutex;
 	struct tty_ldisc *ldisc;
@@ -282,8 +284,10 @@ struct tty_struct {
 	struct winsize winsize;		/* termios mutex */
 	unsigned char stopped:1, hw_stopped:1, flow_stopped:1, packet:1;
 	unsigned char low_latency:1, warned:1;
+	unsigned char update_room_in_ldisc:1;
 	unsigned char ctrl_status;	/* ctrl_lock */
 	unsigned int receive_room;	/* Bytes free for queue */
+	unsigned int rr_bug;
 
 	struct tty_struct *link;
 	struct fasync_struct *fasync;

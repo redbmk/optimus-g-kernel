@@ -627,6 +627,8 @@ static int __init wcnss_wlan_init(void)
 	platform_driver_register(&wcnss_wlan_driver);
 	platform_driver_register(&wcnss_wlan_ctrl_driver);
 
+	wcnss_prealloc_init();
+
 	return 0;
 }
 
@@ -643,6 +645,8 @@ static void __exit wcnss_wlan_exit(void)
 
 	platform_driver_unregister(&wcnss_wlan_ctrl_driver);
 	platform_driver_unregister(&wcnss_wlan_driver);
+	
+	wcnss_prealloc_deinit();
 }
 
 module_init(wcnss_wlan_init);

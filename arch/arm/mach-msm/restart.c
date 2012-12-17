@@ -35,6 +35,10 @@
 #include "msm_watchdog.h"
 #include "timer.h"
 
+#ifdef CONFIG_LGE_PM
+#include <linux/mfd/pm8xxx/pm8921-charger.h>
+#endif
+
 #define WDT0_RST	0x38
 #define WDT0_EN		0x40
 #define WDT0_BARK_TIME	0x4C
@@ -138,6 +142,11 @@ static void __msm_power_off(int lower_pshold)
 #ifdef CONFIG_MSM_DLOAD_MODE
 	set_dload_mode(0);
 #endif
+
+#ifndef QCT_CLK_KICK_START
+	pm8921_turn_on_19p2mhz_clk_ext();
+#endif
+
 	pm8xxx_reset_pwr_off(0);
 
 	if (lower_pshold) {
@@ -259,6 +268,12 @@ void msm_restart(char mode, const char *cmd)
 
 	printk(KERN_NOTICE "Going down for restart now\n");
 
+#ifndef QCT_CLK_KICK_START
+	if (in_panic == 1) {
+		pm8921_turn_on_19p2mhz_clk_ext();
+	}
+#endif
+
 	pm8xxx_reset_pwr_off(1);
 
 	if (cmd != NULL) {
@@ -281,6 +296,17 @@ void msm_restart(char mode, const char *cmd)
 		set_kernel_crash_magic_number();
 reset:
 #endif /* CONFIG_LGE_CRASH_HANDLER */
+
+#ifdef CONFIG_LGE_PM
+	pr_notice("check battery fet\n");
+	if(pm8921_chg_batfet_get_ext() > 0 && lge_get_factory_boot())
+	{
+		/* return control to PMIC FSM */
+		pm8921_chg_batfet_set_ext(0);
+		pr_notice("wait release fet\n");
+		mdelay(7000);
+	}
+#endif
 
 	__raw_writel(0, msm_tmr0_base + WDT0_EN);
 	if (!(machine_is_msm8x60_fusion() || machine_is_msm8x60_fusn_ffa())) {

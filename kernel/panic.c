@@ -24,9 +24,29 @@
 #include <linux/nmi.h>
 #include <linux/dmi.h>
 
+#ifdef CONFIG_LGE_EMS_CH
+#include <mach/hsic_debug_ch.h>
+#endif
 #define PANIC_TIMER_STEP 100
 #define PANIC_BLINK_SPD 18
 
+#ifdef CONFIG_LGE_EMS_CH
+extern sEMS_PRx_Data	gP_ems_data;
+extern int ems_mdm_crash_fatal_flag;		// refer to mdm.c
+extern int ems_mdm_status_low_flag;		// refer to mdm.c
+extern int ems_the_kind_of_subsys;	// refer to subsystem_restart.c
+void store_ems_crash_log(void);
+
+enum {
+	EMS_NO_SUBSYSTEM,			// no subsystem crash was occurred.
+	EMS_SUBSYSTEM_MODEM,		// AP 8k modem subsystem crash was occured.
+	EMS_SUBSYSTEM_RIVA,		
+	EMS_SUBSYSTEM_DSPS,
+	EMS_SUBSYSTEM_LPASS,		// AP lpass subsystem crash was occured.
+	EMS_SUBSYSTEM_MDM,		// mdm  subsystem crash was occurred.	
+	EMS_SUBSYSTEM_OTHER		// this should not be used.	
+};
+#endif
 /* Machine specific panic information string */
 char *mach_panic_string;
 
@@ -111,6 +131,9 @@ void panic(const char *fmt, ...)
 	set_crash_store_enable();
 #endif
 	printk(KERN_EMERG "Kernel panic - not syncing: %s\n",buf);
+#ifdef CONFIG_LGE_EMS_CH
+	store_ems_crash_log();
+#endif
 #ifdef CONFIG_LGE_CRASH_HANDLER
 	set_crash_store_disable();
 #endif
@@ -196,6 +219,82 @@ void panic(const char *fmt, ...)
 	}
 }
 
+#ifdef CONFIG_LGE_EMS_CH
+void store_ems_crash_log()
+{	
+	const char *EMS_ARCH[] ={
+				"EMS_NONE",
+				"A(1)",
+				"M(2)" };
+				
+	if (ems_the_kind_of_subsys > EMS_NO_SUBSYSTEM)
+	{
+		set_crash_store_enable();
+		if(ems_mdm_crash_fatal_flag == true)
+		{
+			printk(KERN_EMERG "\n\nCheck MP side operation (9k_modem)(%d)(%d)!!\n", ems_mdm_crash_fatal_flag, ems_mdm_status_low_flag);		
+			if(gP_ems_data.valid)
+			{
+				printk(KERN_EMERG "\n-------------------------------------------------\n");
+				printk(KERN_EMERG "MDM CRASH!!!\n");
+				printk(KERN_EMERG "[EMS_CRASH_POINT] L : %s, File : %s, Line : %d\n", EMS_ARCH[gP_ems_data.rx_data.header.arch_type], gP_ems_data.rx_data.filename, gP_ems_data.rx_data.line);
+				printk(KERN_EMERG "[EMS_CRASH_MSG] %s \n", gP_ems_data.rx_data.msg);
+				printk(KERN_EMERG "[SW_VERSION] %s \n", gP_ems_data.rx_data.sw_ver);
+				printk(KERN_EMERG "-------------------------------------------------\n");
+			}
+			else 
+			{
+				printk(KERN_EMERG "MDM Crash occured! (but, NO EMS LOG)(%d)(%d)",ems_mdm_crash_fatal_flag,ems_mdm_status_low_flag);
+			}
+		}
+		else // other subsystem crash (8k modem, lpass) or mdm2ap status is low
+		{		
+			if (ems_the_kind_of_subsys == EMS_SUBSYSTEM_RIVA)
+			{
+				printk(KERN_EMERG "\n\nCheck AP side operation(riva)!!\n");
+			}
+			if (ems_the_kind_of_subsys == EMS_SUBSYSTEM_DSPS)
+			{
+				printk(KERN_EMERG "\n\nCheck AP side operation(dsps)!!\n");
+			}				
+			else if (ems_the_kind_of_subsys == EMS_SUBSYSTEM_LPASS)
+			{
+				printk(KERN_EMERG "\n\nCheck AP side operation(lpass)!!\n");
+			}
+			else
+			{
+				if (ems_mdm_status_low_flag == true)
+				{
+					printk(KERN_EMERG "\n\nCheck MDM side operation(%d)(%d)!!\n",ems_mdm_crash_fatal_flag,ems_mdm_status_low_flag);
+					if(gP_ems_data.valid == true)
+					{
+						printk(KERN_EMERG "\n-------------------------------------------------\n");
+						printk(KERN_EMERG "MDM CRASH!!!\n");
+						printk(KERN_EMERG "[EMS_CRASH_POINT] Loc : %s, File : %s, Line : %d\n", EMS_ARCH[gP_ems_data.rx_data.header.arch_type], gP_ems_data.rx_data.filename, gP_ems_data.rx_data.line);
+						printk(KERN_EMERG "[EMS_CRASH_MSG] %s \n", gP_ems_data.rx_data.msg);
+						printk(KERN_EMERG "[SW_VERSION] %s \n", gP_ems_data.rx_data.sw_ver);
+						printk(KERN_EMERG "-------------------------------------------------\n");
+					}
+				}
+				else {
+					printk(KERN_EMERG "\n\nCheck AP side operation(Analyse kernel log)!!\n");				
+				}
+			}	
+			
+		}
+	}
+	else {
+		; // may be kernel panic - no operation..
+	}
+	set_crash_store_disable();
+	ems_the_kind_of_subsys = EMS_NO_SUBSYSTEM;
+	ems_mdm_crash_fatal_flag = false;
+	ems_mdm_status_low_flag = false;
+	printk(KERN_EMERG "\n\n");	
+
+
+}
+#endif
 EXPORT_SYMBOL(panic);
 
 

@@ -363,7 +363,7 @@ static u32 vcd_flush_in_eos(struct vcd_clnt_ctxt *cctxt,
 	} else
 		cctxt->status.mask |= (mode & VCD_FLUSH_ALL);
 
-	return rc;
+    return rc;
 }
 
 static u32 vcd_flush_in_invalid(struct vcd_clnt_ctxt *cctxt,

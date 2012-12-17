@@ -2911,9 +2911,13 @@ static int msm_close_config(struct inode *node, struct file *f)
 		isp_event = (struct msm_isp_event_ctrl *)
 			(*((uint32_t *)ev.u.data));
 		if (isp_event) {
-			if (isp_event->isp_data.isp_msg.len != 0 &&
-				isp_event->isp_data.isp_msg.data != NULL)
-				kfree(isp_event->isp_data.isp_msg.data);
+			// Start LGE_BSP_CAMERA::seongjo.kim@lge.com Add type check to prevent kernel crash(SR#962146)
+			if( ev.type == (V4L2_EVENT_PRIVATE_START + MSM_CAM_RESP_STAT_EVT_MSG) )
+				if (isp_event->isp_data.isp_msg.len != 0 &&
+					isp_event->isp_data.isp_msg.data != NULL)
+					kfree(isp_event->isp_data.isp_msg.data);
+			}
+			// End LGE_BSP_CAMERA::seongjo.kim@lge.com Add type check to prevent kernel crash(SR#962146)
 			kfree(isp_event);
 		}
 	}

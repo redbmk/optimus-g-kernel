@@ -776,6 +776,14 @@ static int dsps_shutdown(const struct subsys_desc *subsys)
 	return 0;
 }
 
+/* LGE_CHANGES */
+void dsps_disable_irq_crash_handler(void)
+{
+	disable_irq_nosync(drv->wdog_irq);
+}
+EXPORT_SYMBOL(dsps_disable_irq_crash_handler);
+/* END LGE_CHANGES */
+
 /**
  *  Powerup function
  * called by the restart notifier

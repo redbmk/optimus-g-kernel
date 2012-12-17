@@ -15,6 +15,19 @@
 #include "msm_ispif.h"
 #include "msm_camera_i2c_mux.h"
 
+//LGE_UPDATE_S hojin.ryu@lge.com 20120629 Added IEF On/Off Switch functions
+#ifdef CONFIG_MACH_LGE
+#ifdef CONFIG_FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT
+#define LGIT_IEF_SWITCH
+
+#ifdef LGIT_IEF_SWITCH
+extern int mipi_lgit_lcd_ief_off(void);
+extern int mipi_lgit_lcd_ief_on(void);
+#endif
+#endif
+#endif
+//LGE_UPDATE_E hojin.ryu@lge.com 20120625
+
 /*=============================================================*/
 int32_t msm_sensor_adjust_frame_lines1(struct msm_sensor_ctrl_t *s_ctrl,
 	uint16_t res)
@@ -143,6 +156,10 @@ int32_t msm_sensor_write_output_settings(struct msm_sensor_ctrl_t *s_ctrl,
 	return rc;
 }
 
+/* LGE_CHANGE_S, dr.ryu@lge.com, 2012-08-02, KeepScreenOn*/
+extern int sub_cam_id_for_keep_screen_on;
+/* LGE_CHANGE_E, dr.ryu@lge.com, 2012-08-02, KeepScreenOn*/
+
 void msm_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	msm_camera_i2c_write_tbl(
@@ -150,6 +167,22 @@ void msm_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl)
 		s_ctrl->msm_sensor_reg->start_stream_conf,
 		s_ctrl->msm_sensor_reg->start_stream_conf_size,
 		s_ctrl->msm_sensor_reg->default_data_type);
+
+/* LGE_CHANGE_S, dr.ryu@lge.com, 2012-08-02, KeepScreenOn*/
+//	pr_err("==============> dr.ryu %s: sub_cam_id_for_keep_screen_on : %d\n", __func__, sub_cam_id_for_keep_screen_on);
+if(sub_cam_id_for_keep_screen_on != -2733){
+    /* LGE_CHANGE_E, dr.ryu@lge.com, 2012-08-02, KeepScreenOn*/
+
+	//LGE_UPDATE_S hojin.ryu@lge.com 20120629	Turn IEF off when camera sensor starts
+#ifdef LGIT_IEF_SWITCH
+	if(system_state != SYSTEM_BOOTING) {
+		mipi_lgit_lcd_ief_off();
+	}
+#endif
+	//LGE_UPDATE_E hojin.ryu@lge.com 20120625
+    /* LGE_CHANGE_S, dr.ryu@lge.com, 2012-08-02, KeepScreenOn*/
+}
+    /* LGE_CHANGE_E, dr.ryu@lge.com, 2012-08-02, KeepScreenOn*/
 }
 
 void msm_sensor_stop_stream(struct msm_sensor_ctrl_t *s_ctrl)
@@ -452,6 +485,9 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 	mutex_lock(s_ctrl->msm_sensor_mutex);
 	CDBG("msm_sensor_config: cfgtype = %d\n",
 	cdata.cfgtype);
+//LGE_UPDATE_S 0828 add messages to debug timeout error yt.jeon@lge.com
+	pr_err("%s: cfgtype = %d\n", __func__, cdata.cfgtype);
+//LGE_UPDATE_E 0828 add messages to debug timeout error yt.jeon@lge.com
 		switch (cdata.cfgtype) {
 		case CFG_SET_FPS:
 		case CFG_SET_PICT_FPS:
@@ -1398,6 +1434,7 @@ int32_t msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	int32_t rc = 0;
 	struct msm_camera_sensor_info *data = s_ctrl->sensordata;
 	CDBG("%s: %d\n", __func__, __LINE__);
+
 	s_ctrl->reg_ptr = kzalloc(sizeof(struct regulator *)
 			* data->sensor_platform_info->num_vreg, GFP_KERNEL);
 	if (!s_ctrl->reg_ptr) {
@@ -1406,6 +1443,7 @@ int32_t msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 		return -ENOMEM;
 	}
 
+	pr_err("%s: before request gpio, sensor name : %s", __func__, s_ctrl->sensordata->sensor_name);
 	rc = msm_camera_request_gpio_table(data, 1);
 	if (rc < 0) {
 		pr_err("%s: request gpio failed\n", __func__);
@@ -1498,6 +1536,18 @@ int32_t msm_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 			MSM_CCI_RELEASE);
 	}
 
+    /* LGE_CHANGE_S, dr.ryu@lge.com, 2012-08-02, KeepScreenOn*/
+	sub_cam_id_for_keep_screen_on = -1;
+//pr_err("==============> dr.ryu %s : GET sub_cam_id_for_keep_screen_on : %d\n", __func__, sub_cam_id_for_keep_screen_on);
+    /* LGE_CHANGE_E, dr.ryu@lge.com, 2012-08-02, KeepScreenOn*/
+	//LGE_UPDATE_S hojin.ryu@lge.com 20120629	Turn IEF on when getting out from camera
+#ifdef LGIT_IEF_SWITCH
+	if(system_state != SYSTEM_BOOTING){	
+		mipi_lgit_lcd_ief_on();
+	}
+#endif
+	//LGE_UPDATE_E hojin.ryu@lge.com 20120629
+	
 	if (data->sensor_platform_info->i2c_conf &&
 		data->sensor_platform_info->i2c_conf->use_i2c_mux)
 		msm_sensor_disable_i2c_mux(
@@ -1507,6 +1557,9 @@ int32_t msm_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 		data->sensor_platform_info->ext_power_ctrl(0);
 	msm_cam_clk_enable(&s_ctrl->sensor_i2c_client->client->dev,
 		cam_clk_info, &s_ctrl->cam_clk, ARRAY_SIZE(cam_clk_info), 0);
+/* LGE_CHANGE_S, increase timing margin, 2012.06.19, yt.jeon@lge.com */
+    usleep(5);
+/* LGE_CHANGE_E, increase timing margin, 2012.06.19, yt.jeon@lge.com */
 	msm_camera_config_gpio_table(data, 0);
 	msm_camera_enable_vreg(&s_ctrl->sensor_i2c_client->client->dev,
 		s_ctrl->sensordata->sensor_platform_info->cam_vreg,

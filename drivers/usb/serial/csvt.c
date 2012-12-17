@@ -22,6 +22,9 @@
 #include <linux/usb/serial.h>
 #include <asm/unaligned.h>
 
+#ifdef CONFIG_LGE_EMS_CH
+#include <mach/hsic_debug_ch.h>
+#endif
 
 /* output control lines*/
 #define CSVT_CTRL_DTR		0x01
@@ -62,6 +65,7 @@ static struct usb_driver csvt_driver = {
 	.supports_autosuspend	= true,
 };
 
+/* Added for CSVT */
 #define CSVT_IFC_NUM	4
 
 static int csvt_probe(struct usb_serial *serial, const struct usb_device_id *id)
@@ -74,6 +78,10 @@ static int csvt_probe(struct usb_serial *serial, const struct usb_device_id *id)
 	if (intf->desc.bInterfaceNumber != CSVT_IFC_NUM)
 		return -ENODEV;
 
+/* Added for CSVT */
+#ifdef	LG_FW_HSIC_EMS_DEBUG
+	printk("[%s] [CSVT] bInterfaceNumber: %d \n", __func__,intf->desc.bInterfaceNumber);
+#endif
 	usb_enable_autosuspend(serial->dev);
 
 	return 0;
@@ -393,6 +401,17 @@ static void csvt_ctrl_release(struct usb_serial *serial)
 	usb_set_serial_port_data(port, NULL);
 }
 
+static void csvt_ctrl_init_termios(struct tty_struct *tty)
+{
+	struct ktermios *termios = tty->termios;
+	*termios = tty_std_termios;
+
+	termios->c_iflag = 0;
+	termios->c_oflag = 0;
+	termios->c_cflag = B38400 | CS8 | CREAD;
+	termios->c_lflag = 0;
+}
+
 static struct usb_serial_driver csvt_device = {
 	.driver			= {
 		.owner	= THIS_MODULE,
@@ -409,6 +428,7 @@ static struct usb_serial_driver csvt_device = {
 	.tiocmset		= csvt_ctrl_tiocmset,
 	.ioctl			= csvt_ctrl_ioctl,
 	.set_termios		= csvt_ctrl_set_termios,
+	.init_termios     = csvt_ctrl_init_termios,
 	.read_int_callback	= csvt_ctrl_int_cb,
 	.attach			= csvt_ctrl_attach,
 	.release		= csvt_ctrl_release,

@@ -39,11 +39,20 @@
 #endif
 #include "diag_dci.h"
 
+#ifdef CONFIG_LGE_DM_APP
+#include "lg_dm_tty.h"
+#endif
+
 #define MODE_CMD		41
 #define RESET_ID		2
 #define ALL_EQUIP_ID		100
 #define ALL_SSID		-1
 #define MAX_SSID_PER_RANGE	100
+//LGE_CHANGE_S 2012.04 lg-msp@lge.com MTS TEAM
+#ifdef CONFIG_LGE_MTS
+#include "mtsk_tty.h"
+#endif /* CONFIG_LGE_MTS */
+//LGE_CHANGE_E 2012.04 lg-msp@lge.com MTS TEAM
 
 int diag_debug_buf_idx;
 unsigned char diag_debug_buf[1024];
@@ -52,6 +61,21 @@ struct diag_master_table entry;
 smd_channel_t *ch_temp = NULL, *chqdsp_temp = NULL, *ch_wcnss_temp = NULL;
 int diag_event_num_bytes;
 int diag_event_config;
+
+#ifdef CONFIG_LGE_USB_DIAG_DISABLE
+#include "diag_lock.h"
+#ifdef CONFIG_LGE_USB_DIAG_DISABLE_ONLY_MDM
+static int diag_enable = DIAG_ENABLE;
+#else
+static int diag_enable = DIAG_DISABLE;
+#endif
+void diagfwd_enable(int enable)
+{
+    diag_enable = enable;
+}
+EXPORT_SYMBOL(diagfwd_enable);
+#endif
+
 struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
 struct diag_hdlc_dest_type enc = { NULL, NULL, 0 };
 struct mask_info {
@@ -383,6 +407,11 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 						driver->write_ptr_svc);
 			} else
 				err = -1;
+//LGE_CHANGE_S 2012.04 lg-msp@lge.com MTS TEAM		
+#ifdef CONFIG_LGE_MTS
+		} else if(0 == mtsk_tty_process(buf, &(write_ptr->length), proc_num)) {
+#endif
+//LGE_CHANGE_E 2012.04 lg-msp@lge.com MTS TEAM
 		} else if (proc_num == MODEM_DATA) {
 			write_ptr->buf = buf;
 #ifdef DIAG_DEBUG
@@ -450,6 +479,53 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 		APPEND_DEBUG('d');
 	}
 #endif /* DIAG OVER USB */
+
+#ifdef CONFIG_LGE_DM_APP
+	if (driver->logging_mode == DM_APP_MODE) {
+		if (proc_num == APPS_DATA) {
+			for (i = 0; i < driver->poolsize_write_struct; i++) {
+				if (driver->buf_tbl[i].length == 0) {
+					driver->buf_tbl[i].buf = buf;
+					driver->buf_tbl[i].length =
+					driver->used;
+#ifdef DIAG_DEBUG
+					pr_debug("diag: ENQUEUE buf ptr"
+					   " and length is %x , %d\n",
+					   (unsigned int)(driver->
+					   buf_tbl[i].buf),
+					   driver->buf_tbl[i].length);
+#endif
+
+				break;
+				}
+			}
+		}
+
+#ifdef CONFIG_DIAG_BRIDGE_CODE
+		else if (proc_num == HSIC_DATA) {
+			for (i = 0; i < driver->poolsize_hsic_write; i++) {
+				if (driver->hsic_buf_tbl[i].length == 0) {
+					driver->hsic_buf_tbl[i].buf = buf;
+					driver->hsic_buf_tbl[i].length =
+							driver->write_len_mdm;
+					driver->num_hsic_buf_tbl_entries++;
+#ifdef DIAG_DEBUG
+					pr_debug("diag: ENQUEUE HSIC buf ptr"
+						"and length is %x , %d\n",
+						(unsigned int)
+						(driver->hsic_buf_tbl[i].buf),
+						driver->hsic_buf_tbl[i].length);
+#endif
+					break;
+				}
+			}
+		}
+#endif
+			lge_dm_tty->set_logging = 1;
+			wake_up_interruptible(&lge_dm_tty->waitq);
+	}
+#endif
+
     return err;
 }
 
@@ -1024,6 +1100,12 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 	unsigned char *ptr;
 #endif
 
+#ifdef CONFIG_LGE_USB_DIAG_DISABLE
+    /* 0xA1(161) is portlock command */
+	if (buf[0] != 0xA1 && diag_enable == 0)
+		return 0;
+#endif
+
 	/* Set log masks */
 	if (*buf == 0x73 && *(int *)(buf+4) == 3) {
 		buf += 8;
@@ -1076,6 +1158,39 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 			ENCODE_RSP_AND_SEND(7);
 			return 0;
 		}
+#endif // 20120612 jaeyoungs.park qct patch for diag command 0x7d 0x03
+	} /* Get runtime message mask  */
+	else if ((*buf == 0x7d) && (*(buf+1) == 0x3)) {
+		ssid_first = *(uint16_t *)(buf + 2);
+		ssid_last = *(uint16_t *)(buf + 4);
+#if defined(CONFIG_DIAG_OVER_USB)
+		if (!(driver->ch) && chk_apps_only()) {
+			driver->apps_rsp_buf[0] = 0x7d;
+			driver->apps_rsp_buf[1] = 0x3;
+			*(uint16_t *)(driver->apps_rsp_buf+2) = ssid_first;
+			*(uint16_t *)(driver->apps_rsp_buf+4) = ssid_last;
+			driver->apps_rsp_buf[6] = 0x1; /* Success Status */
+			driver->apps_rsp_buf[7] = 0x0;
+			rt_mask_ptr = driver->msg_masks;
+			while (*(uint32_t *)(rt_mask_ptr + 4)) {
+				rt_first_ssid = *(uint32_t *)rt_mask_ptr;
+				rt_mask_ptr += 4;
+				rt_last_ssid = *(uint32_t *)rt_mask_ptr;
+				rt_mask_ptr += 4;
+
+				if (ssid_first == rt_first_ssid && ssid_last == rt_last_ssid) 
+				{
+					rt_mask_size = 4 * (rt_last_ssid -
+							 rt_first_ssid + 1);
+					memcpy(driver->apps_rsp_buf+8,
+						 rt_mask_ptr, rt_mask_size);
+					ENCODE_RSP_AND_SEND(8+rt_mask_size-1);
+					return 0;
+				}
+				rt_mask_ptr += MAX_SSID_PER_RANGE*4;
+			}
+		} else
+			buf = temp;
 #endif
 	} /* Get runtime message mask  */
 	else if ((*buf == 0x7d) && (*(buf+1) == 0x3)) {
@@ -1133,7 +1248,12 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 				diag_send_msg_mask_update(driver->ch_wcnss_cntl,
 					 ssid_first, ssid_last, WCNSS_PROC);
 			ENCODE_RSP_AND_SEND(8 + ssid_range - 1);
+#ifndef CONFIG_LGE_SLATE
+      printk(KERN_INFO "[SLATE] Key Logging mask received. NOT L2S, returning..");
 			return 0;
+#else
+      printk(KERN_INFO "[SLATE] Key Logging mask received. Propagate this msg to APPS..");
+#endif
 		} else
 			buf = temp;
 #endif
@@ -1215,6 +1335,15 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 		}
 #endif
 	}
+//LGE_CHANGE_START [sprint]jinwook.chung 20120704 temp code for slate
+#if 1	//temporary code (diag command 0x73 00 00 00 04)
+	else if (*buf == 0x73 && *(int *)(buf+4) == 4) {
+		printk(KERN_INFO "[SLATE] temporary code for 0x73 00 00 00 04 \n");
+		return 1;		// error response
+	} 
+#endif
+//LGE_CHANGE_END [sprint]jinwook.chung 20120704 temp code for slate
+
 	/* Check for registered clients and forward packet to apropriate proc */
 	cmd_code = (int)(*(char *)buf);
 	temp++;
@@ -1224,10 +1353,14 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 	temp += 2;
 	data_type = APPS_DATA;
 	/* Dont send any command other than mode reset */
+//LGE_CHANGE_START jaeyoungs.park 20120514 QCT CDMA Diag Commands on APQ - for SLATE Spec
+#if 0 //Need Feature
 	if (chk_apps_master() && cmd_code == MODE_CMD) {
 		if (subsys_id != RESET_ID)
-			data_type = MODEM_DATA;
+			data_type = MODEM_PROC;
 	}
+#endif
+//LGE_CHANGE_END jaeyoungs.park 20120514 QCT CDMA Diag Commands on APQ - for SLATE Spec
 
 	pr_debug("diag: %d %d %d", cmd_code, subsys_id, subsys_cmd_code);
 	for (i = 0; i < diag_max_reg; i++) {
@@ -1511,15 +1644,23 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 	 /* Check for ID for NO MODEM present */
 	else if (chk_polling_response()) {
 		/* respond to 0x0 command */
+		//LGE_CHANGE_S, dong.kim@lge.com 20120414 VERNO cmd redefine
+		#if 0
 		if (*buf == 0x00) {
 			for (i = 0; i < 55; i++)
+			{
 				driver->apps_rsp_buf[i] = 0;
+			}
 
 			ENCODE_RSP_AND_SEND(54);
 			return 0;
 		}
 		/* respond to 0x7c command */
 		else if (*buf == 0x7c) {
+		#endif
+		/* respond to 0x7c command */
+		if (*buf == 0x7c) {
+		//LGE_CHANGE_E
 			driver->apps_rsp_buf[0] = 0x7c;
 			for (i = 1; i < 8; i++)
 				driver->apps_rsp_buf[i] = 0;
@@ -1625,6 +1766,18 @@ int diagfwd_connect(void)
 {
 	int err;
 
+//LGE_CHANGE_S 2012.04 lg-msp@lge.com MTS TEAM
+	printk(KERN_DEBUG "$MTSUSB1\n");
+//LGE_CHANGE_E 2012.04 lg-msp@lge.com MTS TEAM
+
+#ifdef CONFIG_LGE_DM_APP
+	if (driver->logging_mode == DM_APP_MODE) {
+		printk(KERN_DEBUG "diag: USB connected in DM_APP_MODE\n");
+		driver->usb_connected = 1;
+		return 0;
+	}
+#endif
+
 	printk(KERN_DEBUG "diag: USB connected\n");
 	err = usb_diag_alloc_req(driver->legacy_ch, N_LEGACY_WRITE,
 			N_LEGACY_READ);
@@ -1662,6 +1815,18 @@ int diagfwd_connect(void)
 
 int diagfwd_disconnect(void)
 {
+//LGE_CHANGE_S 2012.04 lg-msp@lge.com MTS TEAM
+	printk(KERN_DEBUG "$MTSUSB0\n");
+//LGE_CHANGE_E 2012.04 lg-msp@lge.com MTS TEAM
+
+#ifdef CONFIG_LGE_DM_APP
+	if (driver->logging_mode == DM_APP_MODE) {
+		printk(KERN_DEBUG "diag: USB disconnected in DM_APP_MODE\n");
+		driver->usb_connected = 0;
+		return 0;
+	}
+#endif
+
 	printk(KERN_DEBUG "diag: USB disconnected\n");
 	driver->usb_connected = 0;
 	driver->debug_flag = 1;

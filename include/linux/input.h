@@ -470,6 +470,10 @@ struct input_keymap_entry {
 
 #define KEY_MICMUTE		248	/* Mute / unmute the microphone */
 
+#define KEY_VIDEO_CALL_END        252     /* VIDEO_CALL_KEY_START */
+#define KEY_VIDEO_CALL_RECEIVE    253
+#define KEY_VIDEO_CALL            254     /* VIDEO_CALL_KEY_END */
+
 /* Code 255 is reserved for special needs of AT keyboard driver */
 
 #define BTN_MISC		0x100
@@ -1510,7 +1514,11 @@ void input_inject_event(struct input_handle *handle, unsigned int type, unsigned
 
 static inline void input_report_key(struct input_dev *dev, unsigned int code, int value)
 {
+#ifdef CONFIG_MACH_LGE
+	input_event(dev, EV_KEY, code, value);
+#else // CONFIG_MACH_LGE
 	input_event(dev, EV_KEY, code, !!value);
+#endif // CONFIG_MACH_LGE
 }
 
 static inline void input_report_rel(struct input_dev *dev, unsigned int code, int value)

@@ -38,6 +38,44 @@ enum msm_cam_flash_stat{
 extern int lm3559_flash_set_led_state(int state);
 #endif
 
+static int32_t flash_i2c_txdata(struct i2c_client *client,
+		unsigned char *txdata, int length)
+{
+	struct i2c_msg msg[] = {
+		{
+			.addr = client->addr >> 1,
+			.flags = 0,
+			.len = length,
+			.buf = txdata,
+		},
+	};
+	if (i2c_transfer(client->adapter, msg, 1) < 0) {
+		CDBG("flash_i2c_txdata faild 0x%x\n", client->addr >> 1);
+		return -EIO;
+	}
+
+	return 0;
+}
+
+static int32_t flash_i2c_write_b(struct i2c_client *client,
+	uint8_t baddr, uint8_t bdata)
+{
+	int32_t rc = -EFAULT;
+	unsigned char buf[2];
+	if (!client)
+		return  -ENOTSUPP;
+
+	memset(buf, 0, sizeof(buf));
+	buf[0] = baddr;
+	buf[1] = bdata;
+
+	rc = flash_i2c_txdata(client, buf, 2);
+	if (rc < 0) {
+		CDBG("i2c_write_b failed, addr = 0x%x, val = 0x%x!\n",
+				baddr, bdata);
+	}
+	usleep_range(4000, 5000);
+
 #ifdef CONFIG_MSM_CAMERA_FLASH_SC628A
 static struct i2c_client *sc628a_client;
 

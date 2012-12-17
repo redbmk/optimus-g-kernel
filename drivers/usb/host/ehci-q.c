@@ -303,6 +303,7 @@ __acquires(ehci->lock)
 }
 
 static void start_unlink_async (struct ehci_hcd *ehci, struct ehci_qh *qh);
+void dbg_log_event(struct urb *urb, char * event, unsigned extra);
 static void unlink_async (struct ehci_hcd *ehci, struct ehci_qh *qh);
 
 static int qh_schedule (struct ehci_hcd *ehci, struct ehci_qh *qh);
@@ -326,6 +327,10 @@ qh_completions (struct ehci_hcd *ehci, struct ehci_qh *qh)
 	if (unlikely (list_empty (&qh->qtd_list)))
 		return count;
 
+        /* work-around code : this function may be called after deletion of qh->qtd_list. */
+        if (qh->qtd_list.next == LIST_POISON1){
+            return count;
+        }
 	/* completions (or tasks on other cpus) must never clobber HALT
 	 * till we've gone through and cleaned everything up, even when
 	 * they add urbs to this qh's queue or mark them for unlinking.
@@ -1277,6 +1282,7 @@ static void end_unlink_async (struct ehci_hcd *ehci)
 	struct ehci_qh		*next;
 
 	iaa_watchdog_done(ehci);
+	dbg_log_event(NULL,"end_unlink_async: WD done qh:",(unsigned)qh);
 
 	// qh->hw_next = cpu_to_hc32(qh->qh_dma);
 	qh->qh_state = QH_STATE_IDLE;
@@ -1348,14 +1354,32 @@ static void start_unlink_async (struct ehci_hcd *ehci, struct ehci_qh *qh)
 	ehci->reclaim = qh = qh_get (qh);
 
 	prev = ehci->async;
+#if 1
+    for (;;) {
+        if (!prev) {
+            pr_err("%s: prev is NULL, qh=%p, ehci->async=%p\n", __func__, qh, ehci->async);
+            goto alter;
+        }
+
+        if (prev->qh_next.qh == qh)
+            break;
+
+        prev = prev->qh_next.qh;
+    }
+#else
 	while (prev->qh_next.qh != qh)
 		prev = prev->qh_next.qh;
+#endif
 
 	prev->hw->hw_next = qh->hw->hw_next;
 	prev->qh_next = qh->qh_next;
 	if (ehci->qh_scan_next == qh)
 		ehci->qh_scan_next = qh->qh_next.qh;
 	wmb ();
+
+#if 1
+alter:
+#endif
 
 	/* If the controller isn't running, we don't have to wait for it */
 	if (unlikely(ehci->rh_state != EHCI_RH_RUNNING)) {
@@ -1369,6 +1393,7 @@ static void start_unlink_async (struct ehci_hcd *ehci, struct ehci_qh *qh)
 	cmd |= CMD_IAAD;
 	ehci_writel(ehci, cmd, &ehci->regs->command);
 	(void)ehci_readl(ehci, &ehci->regs->command);
+	dbg_log_event(NULL,"start_unlink_async: WD start qh:",(unsigned)qh);
 	iaa_watchdog_start(ehci);
 }
 

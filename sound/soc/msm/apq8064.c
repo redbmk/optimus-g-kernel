@@ -324,7 +324,6 @@ static void msm_ext_control(struct snd_soc_codec *codec)
 		snd_soc_dapm_disable_pin(dapm, "Ext Spk Top");
 #endif
 	}
-
 	snd_soc_dapm_sync(dapm);
 }
 
@@ -388,6 +387,7 @@ static int msm_spkramp_event(struct snd_soc_dapm_widget *w,
 		}
 	}
 	return 0;
+#endif
 }
 
 static int msm_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
@@ -494,6 +494,7 @@ static const struct snd_soc_dapm_widget apq8064_dapm_widgets[] = {
 	 * Analog mic7 (Front Top) on Liquid.
 	 * Used as Handset mic on CDP.
 	 */
+
 	SND_SOC_DAPM_MIC("Analog mic7", NULL),
 
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
@@ -519,7 +520,7 @@ static const struct snd_soc_dapm_route apq8064_common_audio_map[] = {
 	{"RX_BIAS", NULL, "MCLK"},
 	{"LDO_H", NULL, "MCLK"},
 
-	{"HEADPHONE", NULL, "LDO_H"},
+        {"HEADPHONE", NULL, "LDO_H"},
 
 	/* Speaker path */
 #ifdef CONFIG_SND_SOC_TPA2028D
@@ -656,16 +657,16 @@ static const struct snd_soc_dapm_route apq8064_liquid_cdp_audio_map[] = {
 	 * Not there on MTP.
 	 * Conncted to DMIC4 Input on Tabla codec.
 	 */
-	{"DMIC4", NULL, "MIC BIAS3 External"},
-	{"MIC BIAS3 External", NULL, "Digital Mic5"},
+        {"DMIC4", NULL, "MIC BIAS3 External"},
+        {"MIC BIAS3 External", NULL, "Digital Mic5"},
 
-	/* Digital Mic6 (Front bottom right corner) on Liquid.
-	 * Digital Mic1 (Front bottom Left) on MTP.
-	 * Digital Mic GM4 on CDP.
-	 * Conncted to DMIC1 Input on Tabla codec.
-	 */
-	{"DMIC1", NULL, "MIC BIAS1 External"},
-	{"MIC BIAS1 External", NULL, "Digital Mic6"},
+        /* Digital Mic6 (Front bottom right corner) on Liquid.
+         * Digital Mic1 (Front bottom Left) on MTP.
+         * Digital Mic GM4 on CDP.
+         * Conncted to DMIC1 Input on Tabla codec.
+         */
+        {"DMIC1", NULL, "MIC BIAS1 External"},
+        {"MIC BIAS1 External", NULL, "Digital Mic6"},
 };
 
 static const char *spk_function[] = {"Off", "On"};

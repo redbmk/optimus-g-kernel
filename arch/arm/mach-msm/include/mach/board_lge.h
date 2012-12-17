@@ -66,6 +66,75 @@ struct kcal_platform_data {
 
 int __init lge_get_uart_mode(void);
 
+#ifdef CONFIG_LGE_PM
+/* LGE_CHANGE
+ * Classified the ADC value for cable detection
+ * 2011-12-05, kidong0420.kim@lge.com
+ */
+typedef enum {
+    NO_INIT_CABLE = 0,
+    CABLE_MHL_1K,
+    CABLE_U_28P7K,
+    CABLE_28P7K,
+    CABLE_56K,
+    CABLE_100K,
+    CABLE_130K,
+    CABLE_180K,
+    CABLE_200K,
+    CABLE_220K,
+    CABLE_270K,
+    CABLE_330K,
+    CABLE_620K,
+    CABLE_910K,
+    CABLE_NONE
+} acc_cable_type;
+
+struct chg_cable_info {
+	acc_cable_type cable_type;
+	unsigned ta_ma;
+	unsigned usb_ma;
+};
+
+int lge_pm_get_cable_info(struct chg_cable_info *);
+void lge_pm_read_cable_info(void);
+acc_cable_type lge_pm_get_cable_type(void);
+unsigned lge_pm_get_ta_current(void);
+unsigned lge_pm_get_usb_current(void);
+#endif
+
+#ifdef CONFIG_LGE_PM_BATTERY_ID_CHECKER
+enum {
+	BATT_UNKNOWN,
+	BATT_DS2704_N = 17,
+	BATT_DS2704_L = 32,
+	BATT_ISL6296_N = 73,
+	BATT_ISL6296_L = 94,
+};
+extern int lge_battery_info;
+#endif
+
+#ifdef CONFIG_LGE_PM
+/* LGE_S kwangjae1.lee@lge.com 2012-06-11 Add bms debugger */
+struct bms_batt_info_type{
+	int mode;
+};
+/* LGE_E kwangjae1.lee@lge.com 2012-06-11 Add bms debugger */
+struct pseudo_batt_info_type {
+	int mode;
+	int id;
+	int therm;
+	int temp;
+	int volt;
+	int capacity;
+	int charging;
+};
+#endif
+int __init lge_get_uart_mode(void);
+
+#if defined(CONFIG_LGE_NFC_PN544)
+void __init lge_add_nfc_devices(void);
+#endif
+
 /* from androidboot.mode */
 enum lge_boot_mode_type {
 	LGE_BOOT_MODE_NORMAL = 0,
@@ -75,6 +144,17 @@ enum lge_boot_mode_type {
 	LGE_BOOT_MODE_FACTORY2,
 	LGE_BOOT_MODE_PIFBOOT,
 	LGE_BOOT_MODE_PIFBOOT2,
+};
+
+/* from cable_type */
+enum lge_boot_cable_type {
+    LGE_BOOT_LT_CABLE_56K = 6,
+    LGE_BOOT_LT_CABLE_130K,
+    LGE_BOOT_USB_CABLE_400MA,
+    LGE_BOOT_USB_CABLE_DTC_500MA,
+    LGE_BOOT_ABNORMAL_USB_CABLE_400MA,
+    LGE_BOOT_LT_CABLE_910K,
+    LGE_BOOT_NO_INIT_CABLE,
 };
 
 void __init lge_reserve(void);
@@ -112,7 +192,21 @@ static inline void __init lge_add_panic_handler_devices(void)
 void __init lge_add_qfprom_devices(void);
 #endif
 
+#ifdef CONFIG_LGE_PM_LOW_BATT_CHG
+int lge_set_charger_logo_state(int val);
+int lge_get_charger_logo_state(void);
+#endif
+
 enum lge_boot_mode_type lge_get_boot_mode(void);
+enum lge_boot_cable_type lge_get_boot_cable_type(void);
 int lge_get_factory_boot(void);
 
+
+#ifdef CONFIG_LGE_BOOT_TIME_CHECK
+void __init lge_add_boot_time_checker(void);
+#endif
+
+#ifdef CONFIG_LGE_ECO_MODE
+void __init lge_add_lge_kernel_devices(void);
+#endif
 #endif // __ASM_ARCH_MSM_BOARD_LGE_H

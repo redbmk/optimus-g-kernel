@@ -149,6 +149,7 @@ enum msm_camera_v4l2_subdev_notify {
 	NOTIFY_VFE_MSG_COMP_STATS, /* arg = struct msm_stats_buf */
 	NOTIFY_VFE_BUF_EVT, /* arg = struct msm_vfe_resp */
 	NOTIFY_ISPIF_STREAM, /* arg = enable parameter for s_stream */
+	NOTIFY_VFE_ERROR, /* LGE_CHANGE, handle bus overflow error from VFE, 2012.09.09, jungryoul.choi@lge.com */
 	NOTIFY_VPE_MSG_EVT,
 	NOTIFY_VFE_CAMIF_ERROR,
 	NOTIFY_VFE_SOF_COUNT, /*arg = int*/
@@ -285,6 +286,8 @@ struct msm_cam_media_controller {
 	uint32_t ping_imem_cbcr;
 	uint32_t pong_imem_y;
 	uint32_t pong_imem_cbcr;
+
+	uint8_t hardware_running; /* LGE_CHANGE, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
 };
 
 /* abstract camera device represents a VFE and connected sensor */
@@ -690,6 +693,8 @@ int msm_mctl_pp_get_vpe_buf_info(struct msm_mctl_pp_frame_info *zoom);
 void msm_queue_init(struct msm_device_queue *queue, const char *name);
 void msm_enqueue(struct msm_device_queue *queue, struct list_head *entry);
 void msm_drain_eventq(struct msm_device_queue *queue);
+
+int get_server_use_count(void); /* LGE_CHANGE, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
 #endif /* __KERNEL__ */
 
 #endif /* _MSM_H */

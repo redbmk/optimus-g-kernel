@@ -28,6 +28,9 @@
 #include <linux/types.h>
 #include <linux/platform_data/flash_lm3559.h>
 #include <mach/camera.h>
+/* LGE_CHANGE S, Low temperature exception handling, 2012-04-26 ku.kwon@lge.com */
+#include <linux/mfd/pm8xxx/pm8921-charger.h>
+/* LGE_CHANGE E, Low temperature exception handling, 2012-04-26 ku.kwon@lge.com */
 
 
 #define LM3559_I2C_NAME  			"lm3559"
@@ -215,6 +218,9 @@ void lm3559_led_disable(void)
 int lm3559_flash_set_led_state(int led_state)
 {
 	int err = 0;
+/* LGE_CHANGE S, Low temperature exception handling, 2012-04-26 ku.kwon@lge.com */
+	int batt_temp = 0;
+/* LGE_CHANGE S, Low temperature exception handling, 2012-04-26 ku.kwon@lge.com */
 
 	pr_err("%s: led_state = %d\n", __func__, led_state);
 
@@ -228,7 +234,16 @@ int lm3559_flash_set_led_state(int led_state)
 		break;
 	case MSM_CAMERA_LED_HIGH:
 		lm3559_led_enable();
-		lm3559_enable_flash_mode(LM3559_LED_HIGH);
+/* LGE_CHANGE S, Low temperature exception handling, 2012-04-26 ku.kwon@lge.com */
+		batt_temp = pm8921_batt_temperature();
+		if(batt_temp > -100) {
+			pr_err("%s: Working on LED_HIGH Flash mode (Battery temperature = %d)\n", __func__, batt_temp);
+			lm3559_enable_flash_mode(LM3559_LED_HIGH);
+		} else {
+			pr_err("%s: Working on LED_LOW Flash mode (Battery temperature = %d)\n", __func__, batt_temp);
+			lm3559_enable_flash_mode(LM3559_LED_LOW);
+		}
+/* LGE_CHANGE S, Low temperature exception handling, 2012-04-26 ku.kwon@lge.com */
 		break;
 	case MSM_CAMERA_LED_INIT:
 		lm3559_config_gpio_on();
@@ -267,6 +282,10 @@ static struct led_classdev lm3559_flash_led = {
 static int lm3559_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	int err = 0;
+	pr_err("%s: probe start\n", __func__);
+
+	if (i2c_get_clientdata(client))
+		return -EBUSY;
 
 	lm3559_i2c_client = client;
 	lm3559_led_flash_pdata = client->dev.platform_data;

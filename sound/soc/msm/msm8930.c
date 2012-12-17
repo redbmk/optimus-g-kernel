@@ -155,8 +155,9 @@ static void msm8960_ext_spk_power_amp_on(u32 spk)
 					__func__, SPKR_BOOST_GPIO);
 				gpio_direction_output(SPKR_BOOST_GPIO, 1);
 			}
-
+#ifdef CONFIG_MFD_PM8XXX_SPK
 			pm8xxx_spk_enable(MSM8930_SPK_ON);
+#endif
 			pr_debug("%s: slepping 4 ms after turning on external "
 				" Left Speaker Ampl\n", __func__);
 			usleep_range(4000, 4000);
@@ -182,8 +183,9 @@ static void msm8960_ext_spk_power_amp_off(u32 spk)
 			gpio_direction_output(SPKR_BOOST_GPIO, 0);
 			gpio_free(SPKR_BOOST_GPIO);
 		}
-
+#ifdef CONFIG_MFD_PM8XXX_SPK
 		pm8xxx_spk_enable(MSM8930_SPK_OFF);
+#endif
 		msm8930_ext_spk_pamp = 0;
 		pr_debug("%s: slepping 4 ms after turning on external "
 			" Left Speaker Ampl\n", __func__);

@@ -19,6 +19,10 @@
 #include <linux/rtc.h>
 #include <linux/wakelock.h>
 #include <linux/workqueue.h>
+//LGE_CHANGE_S, [inho.oh@lge.com] , 2012-04-10, SuspendEarlySuspend debugfs
+#include <linux/kallsyms.h>
+#include <linux/debugfs.h>
+//LGE_CHANGE_E, [inho.oh@lge.com] , 2012-04-10, SuspendEarlySuspend debugfs
 
 #include "power.h"
 
@@ -44,6 +48,38 @@ enum {
 };
 static int state;
 
+//LGE_CHANGE_S, [inho.oh@lge.com] , 2012-04-10, SuspendEarlySuspend debugfs
+#ifdef CONFIG_LGE_EARLYSUSPEND_FUNC_TIME
+enum log_resume_step {
+	RESUME_KICK = 0,
+	RESUME_ENTRY,
+	RESUME_EXIT
+};
+
+static inline void late_resume_call_chain(struct early_suspend *pos);
+static inline void early_suspend_call_chain(struct early_suspend *pos);
+static inline void log_resume(enum log_resume_step step);
+struct timespec ts_resume_kick;
+
+struct resume_delay {
+	int avg;
+	int max;
+	int count;
+};
+
+struct resume_delay resume_delay = {
+	.avg = 0,
+	.max = 0,
+	.count = 0,
+};
+
+struct resume_delay resume_total = {
+	.avg = 0,
+	.max = 0,
+	.count = 0,
+};
+#endif
+//LGE_CHANGE_E, [inho.oh@lge.com] , 2012-04-10, SuspendEarlySuspend debugfs
 void register_early_suspend(struct early_suspend *handler)
 {
 	struct list_head *pos;
@@ -56,6 +92,16 @@ void register_early_suspend(struct early_suspend *handler)
 			break;
 	}
 	list_add_tail(&handler->link, pos);
+//LGE_CHANGE_S, [inho.oh@lge.com] , 2012-04-10, SuspendEarlySuspend debugfs
+#ifdef CONFIG_LGE_EARLYSUSPEND_FUNC_TIME
+	handler->resume_avg = 0;
+	handler->resume_max = 0;
+	handler->resume_count = 0;
+	handler->suspend_avg = 0;
+	handler->suspend_max = 0;
+	handler->suspend_count = 0;
+#endif
+//LGE_CHANGE_E, [inho.oh@lge.com] , 2012-04-10, SuspendEarlySuspend debugfs
 	if ((state & SUSPENDED) && handler->suspend)
 		handler->suspend(handler);
 	mutex_unlock(&early_suspend_lock);
@@ -76,7 +122,9 @@ static void early_suspend(struct work_struct *work)
 	unsigned long irqflags;
 	int abort = 0;
 
+	save_earlysuspend_step(EARLYSUSPEND_START);		//LGE_CHANGE_S, [inho.oh@lge.com] , 2012-04-10, SuspendEarlySuspend debugfs
 	mutex_lock(&early_suspend_lock);
+	save_earlysuspend_step(EARLYSUSPEND_MUTEXLOCK);		//LGE_CHANGE_S, [inho.oh@lge.com] , 2012-04-10, SuspendEarlySuspend debugfs
 	spin_lock_irqsave(&state_lock, irqflags);
 	if (state == SUSPEND_REQUESTED)
 		state |= SUSPENDED;
@@ -93,21 +141,33 @@ static void early_suspend(struct work_struct *work)
 
 	if (debug_mask & DEBUG_SUSPEND)
 		pr_info("early_suspend: call handlers\n");
+	save_earlysuspend_step(EARLYSUSPEND_CHAINSTART);		//LGE_CHANGE_S, [inho.oh@lge.com] , 2012-04-10, SuspendEarlySuspend debugfs
 	list_for_each_entry(pos, &early_suspend_handlers, link) {
 		if (pos->suspend != NULL) {
 			if (debug_mask & DEBUG_VERBOSE)
 				pr_info("early_suspend: calling %pf\n", pos->suspend);
+//LGE_CHANGE_S, [inho.oh@lge.com] , 2012-04-10, SuspendEarlySuspend debugfs
+#ifdef CONFIG_LGE_EARLYSUSPEND_FUNC_TIME
+			early_suspend_call_chain(pos);
+#else
 			pos->suspend(pos);
+#endif
+//LGE_CHANGE_E, [inho.oh@lge.com] , 2012-04-10, SuspendEarlySuspend debugfs
 		}
 	}
+	save_earlysuspend_call(NULL);	//LGE_CHANGE_S, [inho.oh@lge.com] , 2012-04-10, SuspendEarlySuspend debugfs
+	save_earlysuspend_step(EARLYSUSPEND_CHAINDONE);			//LGE_CHANGE_S, [inho.oh@lge.com] , 2012-04-10, SuspendEarlySuspend debugfs
 	mutex_unlock(&early_suspend_lock);
+	save_earlysuspend_step(EARLYSUSPEND_MUTEXUNLOCK);		//LGE_CHANGE_S, [inho.oh@lge.com] , 2012-04-10, SuspendEarlySuspend debugfs
 
 	suspend_sys_sync_queue();
+	save_earlysuspend_step(EARLYSUSPEND_SYNCDONE);
 abort:
 	spin_lock_irqsave(&state_lock, irqflags);
 	if (state == SUSPEND_REQUESTED_AND_SUSPENDED)
 		wake_unlock(&main_wake_lock);
 	spin_unlock_irqrestore(&state_lock, irqflags);
+	save_earlysuspend_step(EARLYSUSPEND_END);
 }
 
 static void late_resume(struct work_struct *work)
@@ -116,7 +176,14 @@ static void late_resume(struct work_struct *work)
 	unsigned long irqflags;
 	int abort = 0;
 
+//LGE_CHANGE_S, [inho.oh@lge.com] , 2012-04-10, SuspendEarlySuspend debugfs
+#ifdef CONFIG_LGE_EARLYSUSPEND_FUNC_TIME
+	log_resume(RESUME_ENTRY);
+#endif
+	save_lateresume_step(LATERESUME_START);
+//LGE_CHANGE_E, [inho.oh@lge.com] , 2012-04-10, SuspendEarlySuspend debugfs
 	mutex_lock(&early_suspend_lock);
+	save_lateresume_step(LATERESUME_MUTEXLOCK);		//LGE_CHANGE_S, [inho.oh@lge.com] , 2012-04-10, SuspendEarlySuspend debugfs
 	spin_lock_irqsave(&state_lock, irqflags);
 	if (state == SUSPENDED)
 		state &= ~SUSPENDED;
@@ -131,18 +198,32 @@ static void late_resume(struct work_struct *work)
 	}
 	if (debug_mask & DEBUG_SUSPEND)
 		pr_info("late_resume: call handlers\n");
+	save_lateresume_step(LATERESUME_CHAINSTART);	//LGE_CHANGE_S, [inho.oh@lge.com] , 2012-04-10, SuspendEarlySuspend debugfs
 	list_for_each_entry_reverse(pos, &early_suspend_handlers, link) {
 		if (pos->resume != NULL) {
 			if (debug_mask & DEBUG_VERBOSE)
 				pr_info("late_resume: calling %pf\n", pos->resume);
-
+//LGE_CHANGE_S, [inho.oh@lge.com] , 2012-04-10, SuspendEarlySuspend debugfs
+#ifdef CONFIG_LGE_EARLYSUSPEND_FUNC_TIME
+			late_resume_call_chain(pos);
+#else
 			pos->resume(pos);
+#endif
+//LGE_CHANGE_E, [inho.oh@lge.com] , 2012-04-10, SuspendEarlySuspend debugfs
 		}
 	}
+//LGE_CHANGE_S, [inho.oh@lge.com] , 2012-04-10, SuspendEarlySuspend debugfs
+#ifdef CONFIG_LGE_EARLYSUSPEND_FUNC_TIME
+	log_resume(RESUME_EXIT);
+#endif
+	save_lateresume_call(NULL);
+//LGE_CHANGE_E, [inho.oh@lge.com] , 2012-04-10, SuspendEarlySuspend debugfs
 	if (debug_mask & DEBUG_SUSPEND)
 		pr_info("late_resume: done\n");
+	save_lateresume_step(LATERESUME_CHAINDONE);	//LGE_CHANGE_S, [inho.oh@lge.com] , 2012-04-10, SuspendEarlySuspend debugfs
 abort:
 	mutex_unlock(&early_suspend_lock);
+	save_lateresume_step(LATERESUME_END);	//LGE_CHANGE_S, [inho.oh@lge.com] , 2012-04-10, SuspendEarlySuspend debugfs
 }
 
 void request_suspend_state(suspend_state_t new_state)
@@ -172,6 +253,11 @@ void request_suspend_state(suspend_state_t new_state)
 		state &= ~SUSPEND_REQUESTED;
 		wake_lock(&main_wake_lock);
 		queue_work(suspend_work_queue, &late_resume_work);
+//LGE_CHANGE_S, [inho.oh@lge.com] , 2012-04-10, SuspendEarlySuspend debugfs
+#ifdef CONFIG_LGE_EARLYSUSPEND_FUNC_TIME
+		log_resume(RESUME_KICK);
+#endif
+//LGE_CHANGE_E, [inho.oh@lge.com] , 2012-04-10, SuspendEarlySuspend debugfs
 	}
 	requested_suspend_state = new_state;
 	spin_unlock_irqrestore(&state_lock, irqflags);
@@ -181,3 +267,131 @@ suspend_state_t get_suspend_state(void)
 {
 	return requested_suspend_state;
 }
+//LGE_CHANGE_S, [inho.oh@lge.com] , 2012-04-10, SuspendEarlySuspend debugfs
+#ifdef CONFIG_DEBUG_FS
+#ifdef CONFIG_LGE_EARLYSUSPEND_FUNC_TIME
+static inline void log_resume(enum log_resume_step step)
+{
+	int msec;
+	struct timespec ts_current, ts_sub;
+	struct resume_delay *record;
+
+	if (step == RESUME_KICK) {
+		getnstimeofday(&ts_resume_kick);
+		return;
+	} else if (step == RESUME_ENTRY) {
+		record = &resume_delay;
+	} else if (step == RESUME_EXIT) {
+		record = &resume_total;
+	}
+
+	getnstimeofday(&ts_current);
+	ts_sub = timespec_sub(ts_current, ts_resume_kick);
+	msec = ts_sub.tv_sec + ts_sub.tv_nsec / NSEC_PER_MSEC;
+
+	record->avg = ((record->avg * record->count) + msec)
+							/ (++record->count);
+	if (msec > record->max)
+		record->max = msec;
+
+	return;
+}
+
+static inline void late_resume_call_chain(struct early_suspend *pos)
+{
+	struct timespec ts_entry, ts_exit, ts_sub;
+	int msec;
+
+	getnstimeofday(&ts_entry);
+	pos->resume(pos);
+	getnstimeofday(&ts_exit);
+
+	ts_sub = timespec_sub(ts_exit, ts_entry);
+	msec = ts_sub.tv_sec + ts_sub.tv_nsec / NSEC_PER_MSEC;
+	pos->resume_avg = ((pos->resume_avg * pos->resume_count) + msec)
+							/ (++pos->resume_count);
+	if (msec > pos->resume_max)
+		pos->resume_max = msec;
+}
+
+static inline void early_suspend_call_chain(struct early_suspend *pos)
+{
+	struct timespec ts_entry, ts_exit, ts_sub;
+	int msec;
+
+	getnstimeofday(&ts_entry);
+	pos->suspend(pos);
+	getnstimeofday(&ts_exit);
+
+	ts_sub = timespec_sub(ts_exit, ts_entry);
+	msec = ts_sub.tv_sec + ts_sub.tv_nsec / NSEC_PER_MSEC;
+	pos->suspend_avg = ((pos->suspend_avg * pos->suspend_count) + msec)
+							/ (++pos->suspend_count);
+	if (msec > pos->suspend_max)
+		pos->suspend_max = msec;
+}
+
+static int earlysuspend_func_time_debug_show(struct seq_file *s, void *data)
+{
+	struct early_suspend *pos;
+	char sym[KSYM_SYMBOL_LEN];
+
+	seq_printf(s, "late_resume total time (msec)\n");
+	seq_printf(s, "    avg:%5d    max:%5d    count:%d\n",
+			resume_total.avg, resume_total.max, resume_total.count);
+	seq_printf(s, "late_resume wq schedule delay(msec)\n");
+	seq_printf(s, "    avg:%5d    max:%5d\n",
+			resume_delay.avg, resume_delay.max);
+
+	list_for_each_entry(pos, &early_suspend_handlers, link) {
+		if (pos->suspend != NULL) {
+    		sprint_symbol(sym, (unsigned long)pos->suspend);
+			seq_printf(s, "suspend: %s\n", sym);
+			seq_printf(s, "    avg:%5d    max:%5d\n",
+					pos->suspend_avg, pos->suspend_max);
+		}
+	}
+
+	list_for_each_entry(pos, &early_suspend_handlers, link) {
+		if (pos->resume != NULL) {
+    		sprint_symbol(sym, (unsigned long)pos->resume);
+			seq_printf(s, "resume: %s\n", sym);
+			seq_printf(s, "    avg:%5d    max:%5d\n",
+					pos->resume_avg, pos->resume_max);
+		}
+	}
+
+	return 0;
+}
+
+static int earlysuspend_func_time_debug_open(struct inode *inode,
+		struct file *file)
+{
+	return single_open(file, earlysuspend_func_time_debug_show, NULL);
+}
+
+static const struct file_operations earlysuspend_func_time_debug_fops = {
+	.open       = earlysuspend_func_time_debug_open,
+	.read       = seq_read,
+	.llseek     = seq_lseek,
+	.release    = single_release,
+};
+
+static int __init earlysuspend_func_time_debug_init(void)
+{
+	struct dentry *d;
+
+	d = debugfs_create_file("earlysuspend_func_time", 0755, NULL, NULL,
+			&earlysuspend_func_time_debug_fops);
+	if (!d) {
+		pr_err("Failed to create earlysuspend_func_time debug file\n");
+		return -ENOMEM;
+	}
+
+	return 0;
+}
+
+late_initcall(earlysuspend_func_time_debug_init);
+#endif
+#endif
+//LGE_CHANGE_E, [inho.oh@lge.com] , 2012-04-10, SuspendEarlySuspend debugfs

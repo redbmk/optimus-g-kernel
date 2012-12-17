@@ -23,6 +23,9 @@
 #include <linux/clkdev.h>
 #include <linux/list.h>
 #include <trace/events/power.h>
+#ifdef CONFIG_LGE_UART_ENABLE_GJ
+#include <mach/board_lge.h>
+#endif
 
 #include "clock.h"
 
@@ -471,6 +474,10 @@ out:
 	return ret;
 }
 
+#ifdef CONFIG_LGE_UART_ENABLE_GJ
+const char *uart_dev_id = "msm_serial_hsl.0";
+#endif
+
 void __init msm_clock_init(struct clock_init_data *data)
 {
 	unsigned n;
@@ -484,6 +491,17 @@ void __init msm_clock_init(struct clock_init_data *data)
 
 	clock_tbl = data->table;
 	num_clocks = data->size;
+
+#ifdef CONFIG_LGE_UART_ENABLE_GJ
+	if(lge_get_uart_mode()){
+		for(n=0; n<num_clocks;n++){
+			if(clock_tbl[n].dev_id!=NULL && !strcmp(clock_tbl[n].dev_id, "msm_serial_hsl.1")){
+				clock_tbl[n].dev_id=uart_dev_id;
+				pr_info("%s: irda off, uart on \n", __func__);
+			}
+		}
+	}
+#endif
 
 	for (n = 0; n < num_clocks; n++) {
 		struct clk *parent;

@@ -25,6 +25,16 @@
 #include <linux/of.h>
 #include <mach/cpufreq.h>
 
+
+#define DEF_TEMP_SENSOR      0
+#define DEF_THERMAL_CHECK_MS 1000
+#ifdef CONFIG_MACH_LGE //sync with thermald-8064.conf's temperature. actually 60'C is too low to degrate CPU freqency to 918MHz
+#define DEF_ALLOWED_MAX_HIGH 93 //later carefully tune it
+#else
+#define DEF_ALLOWED_MAX_HIGH 60
+#endif
+#define DEF_ALLOWED_MAX_FREQ 918000
+
 static int enabled;
 static struct msm_thermal_data msm_thermal_info;
 static uint32_t limited_max_freq = MSM_CPUFREQ_NO_LIMIT;

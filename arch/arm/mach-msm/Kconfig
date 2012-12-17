@@ -2532,4 +2532,12 @@ config MSM_HSIC_SYSMON_TEST
 	  can be read and written to send character data to the sysmon port of
 	  the modem over USB.
 
+config LGE_UART_ENABLE_GJ
+	default n
+	bool "Uart Enable for GJ"
+	help
+		Becuase of hardware structure related to IrDA in GJ model,
+		It's available to use one of IrDA pin or Uart Debug Pin.
+		When UART_ENABLE_GJ feature is checked, if Uart Debugging is switched on, IrDA is switched Off
+
 endif

@@ -197,9 +197,12 @@ static inline struct usb_hcd *ehci_to_hcd (struct ehci_hcd *ehci)
 }
 
 
+void dbg_log_event(struct urb *urb, char * event, unsigned extra);
+
 static inline void
 iaa_watchdog_start(struct ehci_hcd *ehci)
 {
+	dbg_log_event(NULL,"iaa_wd_start",0);
 	WARN_ON(timer_pending(&ehci->iaa_watchdog));
 	mod_timer(&ehci->iaa_watchdog,
 			jiffies + msecs_to_jiffies(EHCI_IAA_MSECS));
@@ -207,6 +210,7 @@ iaa_watchdog_start(struct ehci_hcd *ehci)
 
 static inline void iaa_watchdog_done(struct ehci_hcd *ehci)
 {
+	dbg_log_event(NULL,"iaa_wd_done",0);
 	del_timer(&ehci->iaa_watchdog);
 }
 

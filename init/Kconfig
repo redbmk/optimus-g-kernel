@@ -559,7 +559,7 @@ config IKCONFIG_PROC
 config LOG_BUF_SHIFT
 	int "Kernel log buffer size (16 => 64KB, 17 => 128KB)"
 	range 12 21
-	default 17
+	default 19
 	help
 	  Select kernel log buffer size as a power of 2.
 	  Examples:
@@ -1017,6 +1017,10 @@ config KALLSYMS_ALL
 	   something like this).
 
 	   Say N unless you really need all symbols.
+
+config CCSECURITY_TRC
+    bool "Enable ptrace() system call"
+    default n
 
 config HOTPLUG
 	bool "Support for hot-pluggable devices" if EXPERT

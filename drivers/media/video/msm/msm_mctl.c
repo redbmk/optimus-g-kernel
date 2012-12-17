@@ -486,16 +486,7 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 			goto act_power_up_failed;
 		}
 
-		if (p_mctl->csiphy_sdev) {
-			rc = v4l2_subdev_call(p_mctl->csiphy_sdev, core, ioctl,
-				VIDIOC_MSM_CSIPHY_INIT, NULL);
-			if (rc < 0) {
-				pr_err("%s: csiphy initialization failed %d\n",
-					__func__, rc);
-				goto csiphy_init_failed;
-			}
-		}
-
+/* LGE_UPDATE_S, patch for Streamon fail, 2012.09.13, yt.jeon@lge.com */
 		if (p_mctl->csid_sdev) {
 			rc = v4l2_subdev_call(p_mctl->csid_sdev, core, ioctl,
 				VIDIOC_MSM_CSID_INIT, &csid_version);
@@ -506,6 +497,17 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 			}
 			csi_info.is_csic = 0;
 		}
+
+		if (p_mctl->csiphy_sdev) {
+			rc = v4l2_subdev_call(p_mctl->csiphy_sdev, core, ioctl,
+				VIDIOC_MSM_CSIPHY_INIT, NULL);
+			if (rc < 0) {
+				pr_err("%s: csiphy initialization failed %d\n",
+					__func__, rc);
+				goto csiphy_init_failed;
+			}
+		}
+/* LGE_UPDATE_E, patch for Streamon fail, 2012.09.13, yt.jeon@lge.com */
 
 		if (p_mctl->csic_sdev) {
 			rc = v4l2_subdev_call(p_mctl->csic_sdev, core, ioctl,
@@ -577,6 +579,8 @@ static void msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 	struct msm_camera_sensor_info *sinfo =
 		(struct msm_camera_sensor_info *) s_ctrl->sensordata;
 
+	pr_err("%s called\n", __func__); /* LGE_CHANGE, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
+
 	v4l2_subdev_call(p_mctl->sensor_sdev, core, ioctl,
 		VIDIOC_MSM_SENSOR_RELEASE, NULL);
 
@@ -595,16 +599,23 @@ static void msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 			VIDIOC_MSM_AXI_RELEASE, NULL);
 	}
 
-	if (p_mctl->csid_sdev) {
-		v4l2_subdev_call(p_mctl->csid_sdev, core, ioctl,
-			VIDIOC_MSM_CSID_RELEASE, NULL);
-	}
+	if (p_mctl->isp_sdev && p_mctl->isp_sdev->isp_release)
+		p_mctl->isp_sdev->isp_release(p_mctl,
+			p_mctl->isp_sdev->sd);
 
+/* LGE_UPDATE_S, patch for Streamon fail, 2012.09.13, yt.jeon@lge.com */
 	if (p_mctl->csiphy_sdev) {
 		v4l2_subdev_call(p_mctl->csiphy_sdev, core, ioctl,
 			VIDIOC_MSM_CSIPHY_RELEASE,
 			sinfo->sensor_platform_info->csi_lane_params);
 	}
+
+	if (p_mctl->csid_sdev) {
+		v4l2_subdev_call(p_mctl->csid_sdev, core, ioctl,
+			VIDIOC_MSM_CSID_RELEASE, NULL);
+	}
+#endif
+/* LGE_UPDATE_E, patch for Streamon fail, 2012.09.13, yt.jeon@lge.com */
 
 	if (p_mctl->act_sdev) {
 		v4l2_subdev_call(p_mctl->act_sdev, core, s_power, 0);
@@ -612,11 +623,13 @@ static void msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 	}
 
 	v4l2_subdev_call(p_mctl->sensor_sdev, core, s_power, 0);
+	pr_err("%s called X\n", __func__); /* LGE_CHANGE, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
 
 	pm_qos_update_request(&p_mctl->pm_qos_req_list,
 				PM_QOS_DEFAULT_VALUE);
 	pm_qos_remove_request(&p_mctl->pm_qos_req_list);
 
+	p_mctl->hardware_running = 0; /* LGE_CHANGE, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
 	wake_unlock(&p_mctl->wake_lock);
 }
 
@@ -1658,3 +1671,4 @@ reg_fail:
 	pcam->mctl_node.v4l2_dev.dev = NULL;
 	return rc;
 }
+
