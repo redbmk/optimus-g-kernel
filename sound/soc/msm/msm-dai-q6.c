@@ -1533,7 +1533,6 @@ static struct snd_soc_dai_ops msm_dai_q6_ops = {
   */
 static struct snd_soc_dai_ops msm_dai_q6_slimbus_1_ops = {
 	.prepare	= msm_dai_q6_prepare,
-	.trigger	= msm_dai_q6_trigger,
 	.hw_params	= msm_dai_q6_hw_params,
 	.startup        = msm_dai_q6_slimbus_1_startup,
 	.shutdown	= msm_dai_q6_slimbus_1_shutdown,

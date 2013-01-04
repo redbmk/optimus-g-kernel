@@ -25,7 +25,7 @@
 */
 #include "RefCode_CustomerImplementation.h"
 #include <linux/delay.h>	//msleep
-#include <mach/gpio.h>		//gpio_get_value
+#include <linux/gpio.h>		//gpio_get_value
 
 #include <linux/file.h>		//for file access
 #include <linux/syscalls.h> //for file access

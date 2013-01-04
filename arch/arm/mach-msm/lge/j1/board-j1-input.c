@@ -26,7 +26,7 @@
 #include <mach/board.h>
 
 /* keypad */
-#include <linux/regulator/gpio-regulator.h>
+#include <linux/regulator/msm-gpio-regulator.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
 
 /* i2c */
@@ -66,21 +66,39 @@ int synaptics_t1320_power_on(int on)
 	int rc = -EINVAL;
 	static struct regulator *vreg_l15;
 	static struct regulator *vreg_l22;
-	vreg_l15 = regulator_get(NULL, "8921_l15");   //3.3V_TOUCH_VDD, VREG_L15: 2.75 ~ 3.3
-	if (IS_ERR(vreg_l15)) {
-		pr_err("%s: regulator get of 8921_l15 failed (%ld)\n", __func__, PTR_ERR(vreg_l15));
-		rc = PTR_ERR(vreg_l15);
-		return rc;
+
+	/* 3.3V_TOUCH_VDD, VREG_L15: 2.75 ~ 3.3 */
+	if (!vreg_l15) {
+		vreg_l15 = regulator_get(NULL, "touch_vdd");
+		if (IS_ERR(vreg_l15)) {
+			pr_err("%s: regulator get of 8921_l15 failed (%ld)\n",
+					__func__,
+			       PTR_ERR(vreg_l15));
+			rc = PTR_ERR(vreg_l15);
+			vreg_l15 = NULL;
+			return rc;
+		}
 	}
-	vreg_l22 = regulator_get(NULL, "8921_l22");   //1.8V_TOUCH_IO, VREG_L22: 1.7 ~ 2.85
-	if (IS_ERR(vreg_l22)) {
-		pr_err("%s: regulator get of 8921_l22 failed (%ld)\n", __func__, PTR_ERR(vreg_l22));
-		rc = PTR_ERR(vreg_l22);
-		return rc;
+	/* 1.8V_TOUCH_IO, VREG_L22: 1.7 ~ 2.85 */
+	if (!vreg_l22) {
+		vreg_l22 = regulator_get(NULL, "touch_io");
+		if (IS_ERR(vreg_l22)) {
+			pr_err("%s: regulator get of 8921_l22 failed (%ld)\n",
+					__func__,
+			       PTR_ERR(vreg_l22));
+			rc = PTR_ERR(vreg_l22);
+			vreg_l22 = NULL;
+			return rc;
+		}
 	}
 
 	rc = regulator_set_voltage(vreg_l15, 3300000, 3300000);
-	rc = regulator_set_voltage(vreg_l22, 1800000, 1800000);
+	rc |= regulator_set_voltage(vreg_l22, 1800000, 1800000);
+	if (rc < 0) {
+		printk(KERN_INFO "[Touch D] %s: cannot control regulator\n",
+		       __func__);
+		return rc;
+	}
 
 	if(on)
 	{
@@ -101,11 +119,6 @@ int synaptics_t1320_power_on(int on)
 	}
 #endif
 
-    if(rc < 0){
-        printk(KERN_INFO "[Touch D] %s: cannot request GPIO\n", __func__);
-        return rc;
-    }
-   
 	return rc;    
 }
 
@@ -129,10 +142,12 @@ static struct touch_device_caps touch_caps = {
 	.button_name 				= {KEY_BACK,KEY_HOMEPAGE,KEY_MENU},
 #endif	
 	.button_margin				= 0,	
-	.is_width_supported 		= 1,
+	.is_width_major_supported 		= 1,
+	.is_width_minor_supported 		= 0,
 	.is_pressure_supported 		= 1,
 	.is_id_supported			= 1,
-	.max_width 					= 15,
+	.max_width_major 			= 15,
+	.max_width_minor 			= 15,
 	.max_pressure 				= 0xFF,
 	.max_id						= 10,
 #if defined(CONFIG_MACH_APQ8064_J1D) || defined(CONFIG_MACH_APQ8064_J1KD)	
@@ -148,11 +163,11 @@ static struct touch_device_caps touch_caps = {
 	.lcd_y						= 1280,
 #endif
 #if defined(CONFIG_MACH_APQ8064_J1D) || defined(CONFIG_MACH_APQ8064_J1KD)	
-	.x_max						= 1440,
+	.x_max						= 1440-1,
 #else
-	.x_max						= 1536,
+	.x_max						= 1536-1,
 #endif
-	.y_max						= 2560,
+	.y_max						= 2560-1,
 };
 
 static struct touch_operation_role touch_role = {
@@ -169,20 +184,10 @@ static struct touch_operation_role touch_role = {
 	.jitter_filter_enable	= 0,
 	.jitter_curr_ratio		= 30,
 	.accuracy_filter_enable = 1,
-	.ghost_finger_solution_enable = 1,
 	.irqflags 				= IRQF_TRIGGER_FALLING,
 #if defined(CONFIG_TOUCH_REG_MAP_TM2000) || defined(CONFIG_TOUCH_REG_MAP_TM2372)
 	.show_touches			= 0,
 	.pointer_location		= 0,
-	.ta_debouncing_count    = 2,
-	.ghost_detection_enable = 1,
-#endif
-#if defined(CONFIG_TOUCH_REG_MAP_TM2000)
-	.pen_enable				= 0,
-#elif defined(CONFIG_TOUCH_REG_MAP_TM2372)
-	.pen_enable				= 1,
-#else
-	.pen_enable				= 0,
 #endif
 };
 

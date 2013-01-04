@@ -2,6 +2,9 @@
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include "lge_boot_time_checker.h"
+#include <linux/stat.h>
+#include <linux/export.h>
+#include <linux/module.h>
 
 #undef CONFIG_LGE_BOOT_TIME_CHECK_SBL1_SBL2
 

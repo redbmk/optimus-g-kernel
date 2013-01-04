@@ -45,8 +45,10 @@ int mipi_lgit_lcd_ief_off(void)
 		printk("IEF_OFF Starts with Camera\n");
 		mutex_lock(&local_mfd0->dma->ov_mutex);
 		MIPI_OUTP(MIPI_DSI_BASE + 0x38, 0x10000000);//HS mode
-		mipi_dsi_cmds_tx(local_mfd0, &lgit_tx_buf, mipi_lgit_pdata->power_off_set_ief, mipi_lgit_pdata->power_off_set_ief_size);
-			
+		mipi_dsi_cmds_tx(&lgit_tx_buf,
+				mipi_lgit_pdata->power_off_set_ief,
+				mipi_lgit_pdata->power_off_set_ief_size);
+
 		printk("%s, %d\n", __func__,is_ief_on);
 		MIPI_OUTP(MIPI_DSI_BASE + 0x38, 0x14000000);//LP mode
 		mutex_unlock(&local_mfd0->dma->ov_mutex);
@@ -63,8 +65,10 @@ int mipi_lgit_lcd_ief_on(void)
 		printk("IEF_ON Starts with Camera\n");
 		mutex_lock(&local_mfd0->dma->ov_mutex);
 		MIPI_OUTP(MIPI_DSI_BASE + 0x38, 0x10000000);//HS mode
-		mipi_dsi_cmds_tx(local_mfd0, &lgit_tx_buf, mipi_lgit_pdata->power_on_set_ief, mipi_lgit_pdata->power_on_set_ief_size); 
-							
+		mipi_dsi_cmds_tx(&lgit_tx_buf,
+				mipi_lgit_pdata->power_on_set_ief,
+				mipi_lgit_pdata->power_on_set_ief_size);
+
 		printk("%s, %d\n", __func__,is_ief_on);
 		MIPI_OUTP(MIPI_DSI_BASE + 0x38, 0x14000000); //LP mode
 		mutex_unlock(&local_mfd0->dma->ov_mutex);
@@ -106,7 +110,7 @@ out:
 	return ret;
 }
 
-static int mipi_lgit_lcd_on(struct platform_device *pdev)
+int mipi_lgit_lcd_on(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
 	int ret = 0;
@@ -167,7 +171,7 @@ static int mipi_lgit_lcd_on(struct platform_device *pdev)
 	return 0;
 }
 
-static int mipi_lgit_lcd_off(struct platform_device *pdev)
+int mipi_lgit_lcd_off(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
 	int ret = 0;

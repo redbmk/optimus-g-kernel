@@ -37,6 +37,7 @@
 
 #ifdef CONFIG_LGE_PM
 #include <linux/mfd/pm8xxx/pm8921-charger.h>
+#include <mach/board_lge.h>
 #endif
 
 #define WDT0_RST	0x38

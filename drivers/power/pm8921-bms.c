@@ -2145,7 +2145,7 @@ int LGE_Report_ONE(struct pm8921_bms_chip *chip, int SoC)
 	if ( vbatt_uV  > CUTOFF_SET)
 		return SoC;
 
-	usb_chg = usb_chg_plugged_in();
+	usb_chg = usb_chg_plugged_in(chip);
 
 	pr_debug("vbatt = %d usb_chg = %d\n",vbatt_uV, usb_chg);
 	if(usb_chg)
@@ -2310,7 +2310,7 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	firsttime = 0;
 #ifdef CONFIG_LGE_PM
     /* [LGE_UPDATE_S for preventing the plus SoC gauging] */
-	chg_cable = usb_chg_plugged_in();
+	chg_cable = usb_chg_plugged_in(chip);
 	if(!chg_cable && prev_calculated_soc != -EINVAL)
 	{
 	  if(prev_calculated_soc < calculated_soc)

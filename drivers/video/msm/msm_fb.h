@@ -127,7 +127,6 @@ struct msm_fb_data_type {
 
 	struct mdp_dma_data *dma;
 	void (*dma_fnc) (struct msm_fb_data_type *mfd);
-	void (*wait4idle) (struct msm_fb_data_type *mfd);
 	int (*cursor_update) (struct fb_info *info,
 			      struct fb_cursor *cursor);
 	int (*lut_update) (struct fb_info *info,

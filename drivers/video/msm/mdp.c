@@ -2595,7 +2595,6 @@ static int mdp_probe(struct platform_device *pdev)
 		mfd->do_histogram = mdp_do_histogram;
 		mfd->start_histogram = mdp_histogram_start;
 		mfd->stop_histogram = mdp_histogram_stop;
-		mfd->wait4idle = mdp4_overlay_dsi_video_wait4idle;
 		if (mfd->panel_info.pdest == DISPLAY_1) {
 			if_no = PRIMARY_INTF_SEL;
 			mfd->dma = &dma2_data;
@@ -2683,7 +2682,6 @@ static int mdp_probe(struct platform_device *pdev)
 		mfd->hw_refresh = TRUE;
 		mfd->cursor_update = mdp_hw_cursor_update;
 		mfd->dma_fnc = mdp4_dtv_overlay;
-		mfd->wait4idle = mdp4_overlay_dtv_wait4idle;
 		mfd->dma = &dma_e_data;
 		mfd->do_histogram = mdp_do_histogram;
 		mfd->start_histogram = mdp_histogram_start;
@@ -2712,7 +2710,6 @@ static int mdp_probe(struct platform_device *pdev)
 #endif
 #ifdef CONFIG_FB_MSM_OVERLAY
 		mfd->dma_fnc = mdp4_lcdc_overlay;
-		mfd->wait4idle = mdp4_overlay_lcdc_wait4idle;
 #else
 		mfd->dma_fnc = mdp_lcdc_update;
 #endif

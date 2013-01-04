@@ -198,12 +198,6 @@ static ssize_t qfusing_store(struct device *dev, struct device_attribute *attr,
 		printk("%s:argument fault\n", __func__);
 		return -EINVAL;
 	}
-	
-	p_buf = kmalloc(sizeof(u32)*2, GFP_KERNEL);
-	if(!p_buf) {
-		printk("%s: memory alloc fail\n",__func__);
-		return -EINVAL;
-	}
 
 	for (i = 0; i < ARRAY_SIZE(blow_data); i++) {
 		if (blow_data[i].qfprom_addr == QFPROM_CHECK_HW_KEY) {

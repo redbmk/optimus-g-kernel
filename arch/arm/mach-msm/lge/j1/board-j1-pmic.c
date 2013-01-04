@@ -13,6 +13,7 @@
 
 #include <linux/init.h>
 #include <linux/ioport.h>
+#include <linux/gpio.h>
 #include <linux/platform_device.h>
 #include <linux/bootmem.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
@@ -23,7 +24,6 @@
 #include <asm/mach/mmc.h>
 #include <mach/msm_bus_board.h>
 #include <mach/board.h>
-#include <mach/gpio.h>
 #include <mach/gpiomux.h>
 #include <mach/restart.h>
 #include <mach/board_lge.h>
@@ -174,8 +174,8 @@ static struct pm8xxx_gpio_init pm8921_gpios[] __initdata = {
 	PM8921_GPIO_INPUT(38, PM_GPIO_PULL_UP_30),
 	/* TABLA CODEC RESET */
 	PM8921_GPIO_OUTPUT(34, 1, MED),
-	PM8921_GPIO_INPUT(31, PM_GPIO_PULL_NO),
 	PM8921_GPIO_OUTPUT(13, 0, HIGH),               /* PCIE_CLK_PWR_EN */
+	PM8921_GPIO_INPUT(12, PM_GPIO_PULL_UP_30),     /* PCIE_WAKE_N */
 };
 #endif
 
@@ -189,6 +189,12 @@ static struct pm8xxx_gpio_init pm8921_cdp_kp_gpios[] __initdata = {
 	PM8921_GPIO_INPUT(27, PM_GPIO_PULL_UP_30),
 	PM8921_GPIO_INPUT(42, PM_GPIO_PULL_UP_30),
 	PM8921_GPIO_INPUT(17, PM_GPIO_PULL_UP_1P5),	/* SD_WP */
+};
+ 
+static struct pm8xxx_gpio_init pm8921_mpq_gpios[] __initdata = {
+	PM8921_GPIO_INIT(27, PM_GPIO_DIR_IN, PM_GPIO_OUT_BUF_CMOS, 0,
+			PM_GPIO_PULL_NO, PM_GPIO_VIN_VPH, PM_GPIO_STRENGTH_NO,
+			PM_GPIO_FUNC_NORMAL, 0, 0),
 };
 
 /* Initial PM8XXX MPP configurations */
@@ -230,6 +236,18 @@ void __init apq8064_pm8xxx_gpio_mpp_init(void)
 		for (i = 0; i < ARRAY_SIZE(pm8921_mtp_kp_gpios); i++) {
 			rc = pm8xxx_gpio_config(pm8921_mtp_kp_gpios[i].gpio,
 						&pm8921_mtp_kp_gpios[i].config);
+			if (rc) {
+				pr_err("%s: pm8xxx_gpio_config: rc=%d\n",
+					__func__, rc);
+				break;
+			}
+		}
+
+	if (machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd()
+					|| machine_is_mpq8064_dtv())
+		for (i = 0; i < ARRAY_SIZE(pm8921_mpq_gpios); i++) {
+			rc = pm8xxx_gpio_config(pm8921_mpq_gpios[i].gpio,
+						&pm8921_mpq_gpios[i].config);
 			if (rc) {
 				pr_err("%s: pm8xxx_gpio_config: rc=%d\n",
 					__func__, rc);
@@ -330,6 +348,11 @@ static int pm8921_led0_pwm_duty_pcts[56] = {
 	14, 10, 6, 4, 1
 };
 
+/*
+ * Note: There is a bug in LPG module that results in incorrect
+ * behavior of pattern when LUT index 0 is used. So effectively
+ * there are 63 usable LUT entries.
+ */
 static struct pm8xxx_pwm_duty_cycles pm8921_led0_pwm_duty_cycles = {
 	.duty_pcts = (int *)&pm8921_led0_pwm_duty_pcts,
 	.num_duty_pcts = ARRAY_SIZE(pm8921_led0_pwm_duty_pcts),
@@ -533,6 +556,7 @@ static int apq8064_pm8921_therm_mitigation[] = {
  */
 /* Battery/VDD voltage programmable range, 20mV steps. it will be changed in future  */
 #define MAX_VOLTAGE_MV		4360
+#define CHG_TERM_MA		100
 static struct pm8921_charger_platform_data apq8064_pm8921_chg_pdata __devinitdata = {
 
 	/* max charging time in minutes incl. fast and trkl. it will be changed in future  */
@@ -543,9 +567,11 @@ static struct pm8921_charger_platform_data apq8064_pm8921_chg_pdata __devinitdat
 	/* the voltage (mV) where charging method switches from trickle to fast.
 	 * This is also the minimum voltage the system operates at */
 	.min_voltage		= 3200,
+	.uvd_thresh_voltage	= 4050,
+	.alarm_voltage		= 3500,
 	/* the (mV) drop to wait for before resume charging after the battery has been fully charged */
 	.resume_voltage_delta	= 100, //50,
-	.term_current		= 100,
+	.term_current		= CHG_TERM_MA,
 
 	/* the voltage of charger_gone_irq */
 	.vin_min			= 4400,
@@ -674,6 +700,7 @@ apq8064_pm8921_bms_pdata __devinitdata = {
 	.max_voltage_uv		= MAX_VOLTAGE_MV * 1000,
 	.shutdown_soc_valid_limit = 20,
 	.adjust_soc_low_threshold = 25,
+	.chg_term_ua = CHG_TERM_MA * 1000,
 	.rconn_mohm    = 44,
 };
 
@@ -785,19 +812,6 @@ void __init apq8064_init_pmic(void)
 				&apq8064_ssbi_pm8821_pdata;
 	apq8064_pm8921_platform_data.num_regulators =
 					msm8064_pm8921_regulator_pdata_len;
-
-#if !defined(CONFIG_MACH_LGE)
-/* LGE_S jungshik.park@lge.com 2012-04-18 for lge battery type */
-	if (machine_is_apq8064_rumi3()) {
-		apq8064_pm8921_irq_pdata.devirq = 0;
-		apq8064_pm8821_irq_pdata.devirq = 0;
-	} else if (machine_is_apq8064_mtp()) {
-		apq8064_pm8921_bms_pdata.battery_type = BATT_PALLADIUM;
-	} else if (machine_is_apq8064_liquid()) {
-		apq8064_pm8921_bms_pdata.battery_type = BATT_DESAY;
-	}
-/* LGE_E jungshik.park@lge.com 2012-04-18 for lge battery type */
-#endif
 
 	apq8064_pm8921_adc_pdata.apq_therm = true;
 }

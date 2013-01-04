@@ -1540,6 +1540,7 @@ static int msm_serial_hsl_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct uart_port *port;
+	struct msm_hsl_port *msm_hsl_port;
 	port = get_port_from_line(get_line(pdev));
 
 	if (port) {
@@ -1551,7 +1552,7 @@ static int msm_serial_hsl_resume(struct device *dev)
 		if (is_console(port)) {
 			/* LGE sangyup.kim@lge.com add 1ms delay to avoid corruption in console message */
 			mdelay(1);
-			struct msm_hsl_port *msm_hsl_port = UART_TO_MSM(port);
+			msm_hsl_port = UART_TO_MSM(port);
 			if (!(msm_hsl_port->cons_flags & CON_ENABLED) ||
 			    mako_console_stopped())
 				console_stop(port->cons);

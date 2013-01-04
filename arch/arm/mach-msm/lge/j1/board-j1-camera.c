@@ -11,15 +11,17 @@
  *
  */
 
-#include <asm/mach-types.h>
 #include <linux/i2c.h>
 #include <linux/gpio.h>
+#include <asm/mach-types.h>
 #include <mach/board.h>
 #include <mach/msm_bus_board.h>
 #include <mach/gpiomux.h>
 
 #include "devices.h"
 #include "board-j1.h"
+
+#ifdef CONFIG_MSM_CAMERA
 
 static struct gpiomux_setting cam_settings[] = {
 	{
@@ -103,7 +105,6 @@ static struct gpiomux_setting cam_settings[] = {
 
 };
 
-
 static struct msm_gpiomux_config apq8064_cam_common_configs[] = {
 	{
 		.gpio = GPIO_CAM_FLASH_EN, /* 7 */
@@ -120,8 +121,6 @@ static struct msm_gpiomux_config apq8064_cam_common_configs[] = {
 		},
 	},
 
-/* LGE_CHANGE_S, for old HW (LGU Rev.A,B VZW Rev.A,B ATT Rev.A), 2012.04.27, jungryoul.choi@lge.com */
-#if 1
 	{
 		.gpio = GPIO_CAM_MCLK2, /* 2 */
 		.settings = {
@@ -129,16 +128,6 @@ static struct msm_gpiomux_config apq8064_cam_common_configs[] = {
 			[GPIOMUX_SUSPENDED] = &cam_settings[0],
 		},
 	},
-#else
-	{
-		.gpio = GPIO_CAM_MCLK1, /* 4 */
-		.settings = {
-			[GPIOMUX_ACTIVE]    = &cam_settings[1],
-			[GPIOMUX_SUSPENDED] = &cam_settings[0],
-		},
-	},
-#endif
-/* LGE_CHANGE_E, for old HW (LGU Rev.A,B VZW Rev.A,B ATT Rev.A), jungryoul.choi@lge.com */
 	{
 		.gpio = GPIO_CAM2_RST_N, /* 34 */
 		.settings = {
@@ -168,21 +157,6 @@ static struct msm_gpiomux_config apq8064_cam_common_configs[] = {
 		},
 	},
 };
-
-/* LGE_CHANGE_S, LGE does not use this code, 2012.04.27, jungryoul.choi@lge.com */
-#if 0
-#define VFE_CAMIF_TIMER1_GPIO 3
-#define VFE_CAMIF_TIMER2_GPIO 1
-
-static struct msm_camera_sensor_flash_src msm_flash_src = {
-	.flash_sr_type = MSM_CAMERA_FLASH_SRC_EXT,
-	._fsrc.ext_driver_src.led_en = VFE_CAMIF_TIMER1_GPIO,
-	._fsrc.ext_driver_src.led_flash_en = VFE_CAMIF_TIMER2_GPIO,
-};
-#endif
-/* LGE_CHANGE_E, LGE does not use this code, 2012.04.27, jungryoul.choi@lge.com */
-
-#ifdef CONFIG_MSM_CAMERA
 
 #if defined(CONFIG_IMX111) || defined(CONFIG_IMX091)
 static struct msm_gpiomux_config apq8064_cam_2d_configs[] = {
@@ -277,13 +251,7 @@ static struct msm_bus_vectors cam_zsl_vectors[] = {
 		.src = MSM_BUS_MASTER_VFE,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
 		.ab  = 302071680,
-/* Start LGE_BSP_CAMERA : jongkyung.kim@lge.com 2012-02-20 Continuos Shot Preveiw& Capture Abnormal Phenomenon with ZSL, Case: 00754853 */
-#if 0
-		.ib  = 1208286720,
-#else
 		.ib  = 1812430080,
-#endif
-/* End LGE_BSP_CAMERA   : jongkyung.kim@lge.com 2012-02-20 Continuos Shot Preveiw& Capture Abnormal Phenomenon with ZSL, Case: 00754853 */
 	},
 	{
 		.src = MSM_BUS_MASTER_VPE,
@@ -295,13 +263,28 @@ static struct msm_bus_vectors cam_zsl_vectors[] = {
 		.src = MSM_BUS_MASTER_JPEG_ENC,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
 		.ab  = 540000000,
-/* Start LGE_BSP_CAMERA : jongkyung.kim@lge.com 2012-02-20 Continuos Shot Preveiw& Capture Abnormal Phenomenon with ZSL, Case: 00754853 */
-#if 0
-		.ib  = 1350000000,
-#else
 		.ib  = 2025000000,
-#endif
-/* End LGE_BSP_CAMERA	: jongkyung.kim@lge.com 2012-02-20 Continuos Shot Preveiw& Capture Abnormal Phenomenon with ZSL, Case: 00754853 */
+	},
+};
+
+static struct msm_bus_vectors cam_video_ls_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_VFE,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 348192000,
+		.ib  = 617103360,
+	},
+	{
+		.src = MSM_BUS_MASTER_VPE,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 206807040,
+		.ib  = 488816640,
+	},
+	{
+		.src = MSM_BUS_MASTER_JPEG_ENC,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 540000000,
+		.ib  = 1350000000,
 	},
 };
 
@@ -325,6 +308,10 @@ static struct msm_bus_paths cam_bus_client_config[] = {
 	{
 		ARRAY_SIZE(cam_zsl_vectors),
 		cam_zsl_vectors,
+	},
+	{
+		ARRAY_SIZE(cam_video_ls_vectors),
+		cam_video_ls_vectors,
 	},
 };
 
@@ -368,13 +355,6 @@ static struct camera_vreg_t apq_8064_front_cam_vreg[] = {
 };
 #endif
 
-/* LGE_CHANGE_S, LGE does not use this code, 2012.04.27, jungryoul.choi@lge.com */
-#if 0
-#define CAML_RSTN PM8921_GPIO_PM_TO_SYS(28)
-#define CAMR_RSTN 34
-#endif
-/* LGE_CHANGE_E, LGE does not use this code, 2012.04.27, jungryoul.choi@lge.com */
-
 #if defined(CONFIG_IMX111) || defined(CONFIG_IMX091)
 static struct gpio apq8064_common_cam_gpio[] = {
 	{12, GPIOF_DIR_IN, "CAMIF_I2C_DATA"},
@@ -405,13 +385,7 @@ static struct msm_camera_gpio_conf apq8064_back_cam_gpio_conf = {
 
 #ifdef CONFIG_IMX119
 static struct gpio apq8064_front_cam_gpio[] = {
-/* LGE_CHANGE_S, for old HW (LGU Rev.A,B VZW Rev.A,B ATT Rev.A), 2012.04.27, jungryoul.choi@lge.com */
-#if 1
 	{GPIO_CAM_MCLK2, GPIOF_DIR_IN, "CAMIF_MCLK"},
-#else
-	{GPIO_CAM_MCLK1, GPIOF_DIR_IN, "CAMIF_MCLK"},
-#endif
-/* LGE_CHANGE_E, for old HW (LGU Rev.A,B VZW Rev.A,B ATT Rev.A), 2012.04.27, jungryoul.choi@lge.com */
 	{GPIO_CAM2_RST_N, GPIOF_DIR_OUT, "CAM_RESET"},
 };
 
@@ -439,32 +413,6 @@ static struct msm_camera_i2c_conf apq8064_back_cam_i2c_conf = {
 	.i2c_mux_mode = MODE_L,
 };
 #endif
-// [LGE_TEST_START] 20120504 jinsool.lee@lge.com
-#if 0
-#ifdef CONFIG_IMX111_ACT
-static struct i2c_board_info imx111_actuator_i2c_info = {
-	// [LGE_TEST_START] 20120504 jinsool.lee@lge.com
-	//I2C_BOARD_INFO("imx111_act", I2C_SLAVE_ADDR_IMX111_ACT),  /* 0x18 */
-	I2C_BOARD_INFO("msm_actuator", I2C_SLAVE_ADDR_IMX111_ACT),	/* 0x18 */
-	// [LGE_TEST_END] 20120504 jinsool.lee@lge.com
-
-};
-
-static struct msm_actuator_info imx111_actuator_info = {
-	.board_info     = &imx111_actuator_i2c_info,
-	// [LGE_TEST_START] 20120504 jinsool.lee@lge.com
-	.cam_name 	= MSM_ACTUATOR_MAIN_CAM_1,
-	// [LGE_TEST_END] 20120504 jinsool.lee@lge.com
-	.bus_id         = APQ_8064_GSBI4_QUP_I2C_BUS_ID,
-	.vcm_pwd        = 0,
-	// [LGE_TEST_START] 20120504 jinsool.lee@lge.com
-	//.vcm_enable     = 1,
-	.vcm_enable 		= 0,
-	// [LGE_TEST_END] 20120504 jinsool.lee@lge.com
-
-};
-#endif
-#else
 #ifdef CONFIG_IMX111_ACT
 static struct i2c_board_info msm_act_main_cam_i2c_info = {
 	I2C_BOARD_INFO("msm_actuator", I2C_SLAVE_ADDR_IMX111_ACT),
@@ -477,7 +425,6 @@ static struct msm_actuator_info msm_act_main_cam_0_info = {
 	.vcm_pwd        = 0,
 	.vcm_enable     = 0,
 };
-#endif
 #endif
 
 #ifdef CONFIG_IMX111
@@ -517,20 +464,6 @@ static struct msm_camera_sensor_info msm_camera_sensor_imx111_data = {
 };
 #endif
 
-// [LGE_CHANGE_TEST_START] 20120503 jinsool.lee@lge.com
-#if 0
-#ifdef CONFIG_IMX091_ACT
-static struct i2c_board_info imx091_actuator_i2c_info = {
-	I2C_BOARD_INFO("imx091_act", I2C_SLAVE_ADDR_IMX091_ACT), /* 0x18 */
-};
-static struct msm_actuator_info imx091_actuator_info = {
-	.board_info     = &imx091_actuator_i2c_info,
-	.bus_id         = APQ_8064_GSBI4_QUP_I2C_BUS_ID,
-	.vcm_pwd        = 0,
-	.vcm_enable     = 1,
-};
-#endif
-#else
 #ifdef CONFIG_IMX091_ACT
 static struct i2c_board_info msm_act_main_cam_i2c_info = {
 	I2C_BOARD_INFO("msm_actuator", I2C_SLAVE_ADDR_IMX091_ACT), /* 0x18 */
@@ -544,8 +477,6 @@ static struct msm_actuator_info msm_act_main_cam_0_info = {
 	.vcm_enable     = 0,
 };
 #endif
-#endif
-// [LGE_CHANGE_TEST_END] 20120503 jinsool.lee@lge.com
 #ifdef CONFIG_IMX091
 static struct msm_camera_sensor_flash_data flash_imx091 = {
 	.flash_type	= MSM_CAMERA_FLASH_LED,

@@ -101,6 +101,7 @@ static inline unsigned ecm_bitrate(struct usb_gadget *g)
 
 /* interface descriptor: */
 
+#if defined(CONFIG_USB_ANDROID_CDC_ECM) || defined(CONFIG_USB_G_LGE_ANDROID)
 static struct usb_interface_assoc_descriptor
 ecm_iad_descriptor = {
 	.bLength =		sizeof ecm_iad_descriptor,
@@ -113,7 +114,7 @@ ecm_iad_descriptor = {
 	.bFunctionProtocol =	USB_CDC_PROTO_NONE,
 	/* .iFunction =		DYNAMIC */
 };
-
+#endif
 
 static struct usb_interface_descriptor ecm_control_intf = {
 	.bLength =		sizeof ecm_control_intf,
@@ -227,7 +228,9 @@ static struct usb_endpoint_descriptor fs_ecm_out_desc = {
 
 static struct usb_descriptor_header *ecm_fs_function[] = {
 	/* CDC ECM control descriptors */
+#if defined(CONFIG_USB_ANDROID_CDC_ECM) || defined(CONFIG_USB_G_LGE_ANDROID)
 	(struct usb_descriptor_header *) &ecm_iad_descriptor,
+#endif
 	(struct usb_descriptor_header *) &ecm_control_intf,
 	(struct usb_descriptor_header *) &ecm_header_desc,
 	(struct usb_descriptor_header *) &ecm_union_desc,

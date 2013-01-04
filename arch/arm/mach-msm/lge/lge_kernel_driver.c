@@ -12,6 +12,8 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/cpumask.h>
 #include <linux/platform_device.h>
 
 static int eco_cpu_num = 4;

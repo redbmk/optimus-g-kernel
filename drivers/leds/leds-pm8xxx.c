@@ -424,9 +424,11 @@ static int pm8xxx_led_pwm_pattern_update(struct pm8xxx_led_data * led)
 	int idx_len0, idx_len1;
 	int *pcts0 = NULL;
 	int *pcts1 = NULL;
+	int mid0, mid1;
 #else
 	int idx_len;
 	int *pcts = NULL;
+	int mid;
 #endif
         
 	int i, rc = 0;
@@ -434,6 +436,43 @@ static int pm8xxx_led_pwm_pattern_update(struct pm8xxx_led_data * led)
 	int pwm_max = 0;
 	int total_ms, on_ms;
 
+#ifdef LGE_PWM_LED
+	if (!led->pwm_duty_cycles ||
+			!led->pwm_duty_cycles->duty_pcts0 ||
+			!led->pwm_duty_cycles->duty_pcts1) {
+		dev_err(led->cdev.dev, "duty_cycles and duty_pcts do not exist\n");
+		return -EINVAL;
+	}
+
+	if (led->pwm_grppwm > 0 && led->pwm_grpfreq > 0) {
+		total_ms = led->pwm_grpfreq * 50;
+		on_ms = (led->pwm_grppwm * total_ms) >> 8;
+		if (PM8XXX_LED_PWM_FLAGS & PM_PWM_LUT_REVERSE) {
+			led->pwm_duty_cycles->duty_ms0 = on_ms /
+				(led->pwm_duty_cycles->num_duty_pcts0 << 1);
+			led->pwm_duty_cycles->duty_ms1 = on_ms /
+				(led->pwm_duty_cycles->num_duty_pcts1 << 1);
+			led->pwm_pause_lo = min(
+				on_ms % (led->pwm_duty_cycles->num_duty_pcts0 << 1),
+				on_ms % (led->pwm_duty_cycles->num_duty_pcts1 << 1));
+		} else {
+			led->pwm_duty_cycles->duty_ms0 = on_ms /
+				(led->pwm_duty_cycles->num_duty_pcts0);
+			led->pwm_duty_cycles->duty_ms1 = on_ms /
+				(led->pwm_duty_cycles->num_duty_pcts1);
+			led->pwm_pause_lo = min(
+				on_ms % (led->pwm_duty_cycles->num_duty_pcts0),
+				on_ms % (led->pwm_duty_cycles->num_duty_pcts1));
+		}
+		led->pwm_pause_hi = total_ms - on_ms;
+		dev_dbg(led->cdev.dev, "duty_ms0 %d, duty_ms1 %d, pause_hi %d, pause_lo %d, total_ms %d, on_ms %d\n",
+				led->pwm_duty_cycles->duty_ms0, led->pwm_duty_cycles->duty_ms1,
+				led->pwm_pause_hi, led->pwm_pause_lo, total_ms, on_ms);
+	}
+
+	pwm_max = pm8xxx_adjust_brightness(&led->cdev, led->cdev.brightness);
+	start_idx = led->pwm_duty_cycles->start_idx;
+#else
 	if (!led->pwm_duty_cycles || !led->pwm_duty_cycles->duty_pcts) {
 		dev_err(led->cdev.dev, "duty_cycles and duty_pcts is not exist\n");
 		return -EINVAL;
@@ -461,6 +500,7 @@ static int pm8xxx_led_pwm_pattern_update(struct pm8xxx_led_data * led)
 
 	pwm_max = pm8xxx_adjust_brightness(&led->cdev, led->cdev.brightness);
 	start_idx = led->pwm_duty_cycles->start_idx;
+#endif
 
 #ifdef LGE_PWM_LED
 	idx_len0 = led->pwm_duty_cycles->num_duty_pcts0;
@@ -475,21 +515,30 @@ static int pm8xxx_led_pwm_pattern_update(struct pm8xxx_led_data * led)
 
 #ifdef LGE_PWM_LED
 	if (led->blink) {
-		int mid = (idx_len - 1) >> 1;
-		for (i = 0; i <= mid; i++) {
-			temp = ((pwm_max * i) << 1) / mid + 1;
-			pcts0[i] = pcts1[i] = temp >> 1;
+		mid0 = (idx_len0 - 1) >> 1;
+		for (i = 0; i <= mid0; i++) {
+			temp = ((pwm_max * i) << 1) / mid0 + 1;
+			pcts0[i] = temp >> 1;
 			pcts0[idx_len0 - 1 - i] = temp >> 1;
+		}
+
+		mid1 = (idx_len1 - 1) >> 1;
+		for (i = 0; i <= mid1; i++) {
+			temp = ((pwm_max * i) << 1) / mid1 + 1;
+			pcts1[i] = temp >> 1;
 			pcts1[idx_len1 - 1 - i] = temp >> 1;
 		}
 	} else {
-		for (i = 0; i < idx_len; i++) {
-			pcts0[i] = pcts1[i] = pwm_max;
+		for (i = 0; i < idx_len0; i++) {
+			pcts0[i] = pwm_max;
+		}
+		for (i = 0; i < idx_len1; i++) {
+			pcts1[i] = pwm_max;
 		}
 	}
 #else
 	if (led->blink) {
-		int mid = (idx_len - 1) >> 1;
+		mid = (idx_len - 1) >> 1;
 		for (i = 0; i <= mid; i++) {
 			temp = ((pwm_max * i) << 1) / mid + 1;
 			pcts[i] = temp >> 1;

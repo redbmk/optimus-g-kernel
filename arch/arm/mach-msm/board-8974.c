@@ -51,7 +51,7 @@
 
 #define MSM_KERNEL_EBI1_MEM_SIZE	0x280000
 
-#ifdef CONFIG_KERNEL_PMEM_EBI_REGION
+#ifdef CONFIG_KERNEL_MSM_CONTIG_MEM_REGION
 static unsigned kernel_ebi1_mem_size = MSM_KERNEL_EBI1_MEM_SIZE;
 static int __init kernel_ebi1_mem_size_setup(char *p)
 {
@@ -79,7 +79,7 @@ static int msm_8974_paddr_to_memtype(unsigned int paddr)
 
 static void __init reserve_ebi_memory(void)
 {
-#ifdef CONFIG_KERNEL_PMEM_EBI_REGION
+#ifdef CONFIG_KERNEL_MSM_CONTIG_MEM_REGION
 	msm_8974_reserve_table[MEMTYPE_EBI1].size += kernel_ebi1_mem_size;
 #endif
 }

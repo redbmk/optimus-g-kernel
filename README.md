@@ -9,13 +9,9 @@ DESCRIPTION
     This will be the kernel for the Optimus G.
 
     I am specifically working on the 3.4.0 kernel for the Sprint LG Optimus G (LS970),
-however I plan to include a branch for the 3.0.21 kernel and am hoping to have it working
-for all variations of the OG (although I only have the Sprint version with which to test).
+    however I plan to include a branch for the 3.0.21 kernel and am hoping to have it working
+    for all variations of the OG (although I only have the Sprint version with which to test).
 
 STATUS
 ======
-    Compilation is failing with the following error:
-
-    arch/arm/kernel/armksyms.c:159: error: '__pv_phys_offset' undeclared here (not in a function)
-    arch/arm/kernel/armksyms.c:159: warning: type defaults to 'int' in declaration of '__pv_phys_offset'
-    error, forbidden warning: armksyms.c:159
+    Seems to get past the compiling stage, but is having troubles linking.

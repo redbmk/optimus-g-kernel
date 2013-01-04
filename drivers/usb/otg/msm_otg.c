@@ -2119,10 +2119,10 @@ static void msm_chg_detect_work(struct work_struct *w)
 		}
 		if (motg->pdata->enable_dcd)
 			is_dcd = msm_chg_check_dcd(motg);
-		dev_info(otg->dev, "check charger dcd\n");
+		dev_info(phy->dev, "check charger dcd\n");
 		tmout = ++motg->dcd_retries == MSM_CHG_DCD_MAX_RETRIES;
 		if (is_dcd || tmout) {
-			dev_info(otg->dev, "diable chg dcd\n");
+			dev_info(phy->dev, "diable chg dcd\n");
 			if (motg->pdata->enable_dcd)
 				msm_chg_disable_dcd(motg);
 			msm_chg_enable_primary_det(motg);
@@ -2133,7 +2133,7 @@ static void msm_chg_detect_work(struct work_struct *w)
 		}
 		break;
 	case USB_CHG_STATE_DCD_DONE:
-		dev_info(otg->dev, "check primary charger detection\n");
+		dev_info(phy->dev, "check primary charger detection\n");
 		vout = msm_chg_check_primary_det(motg);
 		line_state = readl_relaxed(USB_PORTSC) & PORTSC_LS;
 		dm_vlgc = line_state & PORTSC_LS_DM;

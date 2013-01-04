@@ -13,17 +13,13 @@
 
 #include <linux/init.h>
 #include <linux/ioport.h>
+#include <linux/gpio.h>
 #include <linux/platform_device.h>
 #include <linux/bootmem.h>
 #include <linux/ion.h>
-#if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_PT) ||\
-	defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT)
-#include <linux/gpio.h>
-#endif
 #include <asm/mach-types.h>
 #include <mach/msm_memtypes.h>
 #include <mach/board.h>
-#include <mach/gpio.h>
 #include <mach/gpiomux.h>
 #include <mach/ion.h>
 #include <mach/msm_bus_board.h>
@@ -154,71 +150,14 @@ static struct resource msm_fb_resources[] = {
 	}
 };
 
-#define LVDS_CHIMEI_PANEL_NAME "lvds_chimei_wxga"
 #define MIPI_VIDEO_TOSHIBA_WSVGA_PANEL_NAME "mipi_video_toshiba_wsvga"
 #define MIPI_VIDEO_CHIMEI_WXGA_PANEL_NAME "mipi_video_chimei_wxga"
 #define HDMI_PANEL_NAME "hdmi_msm"
 #define TVOUT_PANEL_NAME "tvout_msm"
 
-#ifndef CONFIG_MACH_LGE
-#ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
-static unsigned char hdmi_is_primary = 1;
-#else
-static unsigned char hdmi_is_primary;
-#endif
-
-unsigned char apq8064_hdmi_as_primary_selected(void)
-{
-	return hdmi_is_primary;
-}
-
-static void set_mdp_clocks_for_wuxga(void);
-#endif
-
 static int msm_fb_detect_panel(const char *name)
 {
-#ifndef CONFIG_MACH_LGE
-	u32 version;
-	if (machine_is_apq8064_liquid()) {
-		version = socinfo_get_platform_version();
-		if ((SOCINFO_VERSION_MAJOR(version) == 1) &&
-			(SOCINFO_VERSION_MINOR(version) == 1)) {
-			if (!strncmp(name, MIPI_VIDEO_CHIMEI_WXGA_PANEL_NAME,
-				strnlen(MIPI_VIDEO_CHIMEI_WXGA_PANEL_NAME,
-					PANEL_NAME_MAX_LEN)))
-				return 0;
-		} else {
-			if (!strncmp(name, LVDS_CHIMEI_PANEL_NAME,
-				strnlen(LVDS_CHIMEI_PANEL_NAME,
-					PANEL_NAME_MAX_LEN)))
-				return 0;
-		}
-	} else if (machine_is_apq8064_mtp()) {
-		if (!strncmp(name, MIPI_VIDEO_TOSHIBA_WSVGA_PANEL_NAME,
-			strnlen(MIPI_VIDEO_TOSHIBA_WSVGA_PANEL_NAME,
-				PANEL_NAME_MAX_LEN)))
-			return 0;
-	} else if (machine_is_apq8064_cdp() ||
-		       machine_is_mpq8064_dtv()) {
-		if (!strncmp(name, LVDS_CHIMEI_PANEL_NAME,
-			strnlen(LVDS_CHIMEI_PANEL_NAME,
-				PANEL_NAME_MAX_LEN)))
-			return 0;
-	}
-
-	if (!strncmp(name, HDMI_PANEL_NAME,
-		strnlen(HDMI_PANEL_NAME,
-				PANEL_NAME_MAX_LEN))) {
-		if (apq8064_hdmi_as_primary_selected())
-			set_mdp_clocks_for_wuxga();
-		return 0;
-	}
-
-
-	return -ENODEV;
-#else
 	return 0;
-#endif
 }
 
 static struct msm_fb_platform_data msm_fb_pdata = {
@@ -255,8 +194,6 @@ static struct msm_bus_vectors mdp_1080p_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_MDP_PORT0,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		//.ab = 334080000 * 2,
-		//.ib = 417600000 * 2,
 		.ab = 2000000000,
 		.ib = 2000000000,
 	},
@@ -264,32 +201,22 @@ static struct msm_bus_vectors mdp_1080p_vectors[] = {
 
 static struct msm_bus_paths mdp_bus_scale_usecases[] = {
 	{
-//		ARRAY_SIZE(mdp_init_vectors),
-//		mdp_init_vectors,
 		ARRAY_SIZE(mdp_1080p_vectors),
 		mdp_1080p_vectors,
 	},
 	{
-//		ARRAY_SIZE(mdp_ui_vectors),
-//		mdp_ui_vectors,
 		ARRAY_SIZE(mdp_1080p_vectors),
 		mdp_1080p_vectors,
 	},
 	{
-//		ARRAY_SIZE(mdp_ui_vectors),
-//		mdp_ui_vectors,
 		ARRAY_SIZE(mdp_1080p_vectors),
 		mdp_1080p_vectors,
 	},
 	{
-//		ARRAY_SIZE(mdp_vga_vectors),
-//		mdp_vga_vectors,
 		ARRAY_SIZE(mdp_1080p_vectors),
 		mdp_1080p_vectors,
 	},
 	{
-//		ARRAY_SIZE(mdp_720p_vectors),
-//		mdp_720p_vectors,
 		ARRAY_SIZE(mdp_1080p_vectors),
 		mdp_1080p_vectors,
 	},
@@ -304,13 +231,10 @@ static struct msm_bus_scale_pdata mdp_bus_scale_pdata = {
 	.name = "mdp",
 };
 
-static int mdp_core_clk_rate_table[] = {
-	266667000, //128000000
-	266667000,  // 160000000
-	266667000, // 160000000
-	266667000, // 177780000
-};
+#define MDP_MAX_CLK_RATE 266667000
+
 #else	
+
 static struct msm_bus_vectors mdp_init_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_MDP_PORT0,
@@ -392,24 +316,13 @@ static struct msm_bus_scale_pdata mdp_bus_scale_pdata = {
 	.name = "mdp",
 };
 
-static int mdp_core_clk_rate_table[] = {
-	200000000, //160000000, //128000000, //96000000,//85330000 // Raise MDP core clock for Avoiding underrun when playing specific video files.
-	200000000, //160000000,
-	200000000, //160000000,
-	200000000,
-};
+#define MDP_MAX_CLK_RATE 200000000
+
 #endif
 
 static struct msm_panel_common_pdata mdp_pdata = {
 	.gpio = MDP_VSYNC_GPIO,
-#if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_PT) ||\
-	defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT)
-        .mdp_core_clk_rate = 200000000,
-#else	
-	.mdp_core_clk_rate = 96000000, //85330000,
-#endif
-	.mdp_core_clk_table = mdp_core_clk_rate_table,
-	.num_mdp_clk = ARRAY_SIZE(mdp_core_clk_rate_table),
+        .mdp_max_clk = MDP_MAX_CLK_RATE,
 	.mdp_bus_scale_table = &mdp_bus_scale_pdata,
 	.mdp_rev = MDP_REV_44,
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
@@ -947,188 +860,6 @@ static struct mipi_dsi_platform_data mipi_dsi_pdata = {
 /* LGE_UPDATE_E 2012-05-10 jungbeom.shim@lge.com  for early backlight on for APQ8064 */
 };
 
-/*
- * QCT Original
- *
- * NOT USED
- *
-*/
-#if !defined(CONFIG_MACH_LGE)
-static bool lvds_power_on;
-static int lvds_panel_power(int on)
-{
-	static struct regulator *reg_lvs7, *reg_l2, *reg_ext_3p3v;
-	static int gpio36, gpio26, mpp3;
-	int rc;
-
-	pr_debug("%s: on=%d\n", __func__, on);
-
-	if (!lvds_power_on) {
-		reg_lvs7 = regulator_get(&msm_lvds_device.dev,
-				"lvds_vdda");
-		if (IS_ERR_OR_NULL(reg_lvs7)) {
-			pr_err("could not get 8921_lvs7, rc = %ld\n",
-				PTR_ERR(reg_lvs7));
-			return -ENODEV;
-		}
-
-		reg_l2 = regulator_get(&msm_lvds_device.dev,
-				"lvds_pll_vdda");
-		if (IS_ERR_OR_NULL(reg_l2)) {
-			pr_err("could not get 8921_l2, rc = %ld\n",
-				PTR_ERR(reg_l2));
-			return -ENODEV;
-		}
-
-		rc = regulator_set_voltage(reg_l2, 1200000, 1200000);
-		if (rc) {
-			pr_err("set_voltage l2 failed, rc=%d\n", rc);
-			return -EINVAL;
-		}
-
-		reg_ext_3p3v = regulator_get(&msm_lvds_device.dev,
-			"lvds_vccs_3p3v");
-		if (IS_ERR_OR_NULL(reg_ext_3p3v)) {
-			pr_err("could not get reg_ext_3p3v, rc = %ld\n",
-			       PTR_ERR(reg_ext_3p3v));
-		    return -ENODEV;
-		}
-
-		gpio26 = PM8921_GPIO_PM_TO_SYS(26);
-		rc = gpio_request(gpio26, "pwm_backlight_ctrl");
-		if (rc) {
-			pr_err("request gpio 26 failed, rc=%d\n", rc);
-			return -ENODEV;
-		}
-
-		gpio36 = PM8921_GPIO_PM_TO_SYS(36); /* lcd1_pwr_en_n */
-		rc = gpio_request(gpio36, "lcd1_pwr_en_n");
-		if (rc) {
-			pr_err("request gpio 36 failed, rc=%d\n", rc);
-			return -ENODEV;
-		}
-
-		mpp3 = PM8921_MPP_PM_TO_SYS(3);
-		rc = gpio_request(mpp3, "backlight_en");
-		if (rc) {
-			pr_err("request mpp3 failed, rc=%d\n", rc);
-			return -ENODEV;
-		}
-
-		lvds_power_on = true;
-	}
-
-	if (on) {
-		rc = regulator_enable(reg_lvs7);
-		if (rc) {
-			pr_err("enable lvs7 failed, rc=%d\n", rc);
-			return -ENODEV;
-		}
-
-		rc = regulator_set_optimum_mode(reg_l2, 100000);
-		if (rc < 0) {
-			pr_err("set_optimum_mode l2 failed, rc=%d\n", rc);
-			return -EINVAL;
-		}
-		rc = regulator_enable(reg_l2);
-		if (rc) {
-			pr_err("enable l2 failed, rc=%d\n", rc);
-			return -ENODEV;
-		}
-
-		rc = regulator_enable(reg_ext_3p3v);
-		if (rc) {
-			pr_err("enable reg_ext_3p3v failed, rc=%d\n", rc);
-			return -ENODEV;
-		}
-
-		gpio_set_value_cansleep(gpio36, 0);
-		gpio_set_value_cansleep(mpp3, 1);
-	} else {
-		gpio_set_value_cansleep(mpp3, 0);
-		gpio_set_value_cansleep(gpio36, 1);
-
-		rc = regulator_disable(reg_lvs7);
-		if (rc) {
-			pr_err("disable reg_lvs7 failed, rc=%d\n", rc);
-			return -ENODEV;
-		}
-		rc = regulator_disable(reg_l2);
-		if (rc) {
-			pr_err("disable reg_l2 failed, rc=%d\n", rc);
-			return -ENODEV;
-		}
-		rc = regulator_disable(reg_ext_3p3v);
-		if (rc) {
-			pr_err("disable reg_ext_3p3v failed, rc=%d\n", rc);
-			return -ENODEV;
-		}
-	}
-
-	return 0;
-}
-
-static int lvds_pixel_remap(void)
-{
-	if (machine_is_apq8064_cdp() ||
-	    machine_is_apq8064_liquid()) {
-		u32 ver = socinfo_get_version();
-		if ((SOCINFO_VERSION_MAJOR(ver) == 1) &&
-		    (SOCINFO_VERSION_MINOR(ver) == 0))
-			return 1;
-	}
-	return 0;
-}
-
-static struct lcdc_platform_data lvds_pdata = {
-	.lcdc_power_save = lvds_panel_power,
-	.lvds_pixel_remap = lvds_pixel_remap
-};
-
-#define LPM_CHANNEL 2
-static int lvds_chimei_gpio[] = {LPM_CHANNEL};
-
-static struct lvds_panel_platform_data lvds_chimei_pdata = {
-	.gpio = lvds_chimei_gpio,
-};
-
-static struct platform_device lvds_chimei_panel_device = {
-	.name = "lvds_chimei_wxga",
-	.id = 0,
-	.dev = {
-		.platform_data = &lvds_chimei_pdata,
-	}
-};
-
-static int dsi2lvds_gpio[2] = {
-	LPM_CHANNEL,/* Backlight PWM-ID=0 for PMIC-GPIO#24 */
-	0x1F08 /* DSI2LVDS Bridge GPIO Output, mask=0x1f, out=0x08 */
-};
-static struct msm_panel_common_pdata mipi_dsi2lvds_pdata = {
-	.gpio_num = dsi2lvds_gpio,
-};
-
-static struct platform_device mipi_dsi2lvds_bridge_device = {
-	.name = "mipi_tc358764",
-	.id = 0,
-	.dev.platform_data = &mipi_dsi2lvds_pdata,
-};
-
-static int toshiba_gpio[] = {LPM_CHANNEL};
-static struct mipi_dsi_panel_platform_data toshiba_pdata = {
-	.gpio = toshiba_gpio,
-};
-
-static struct platform_device mipi_dsi_toshiba_panel_device = {
-	.name = "mipi_toshiba",
-	.id = 0,
-	.dev = {
-			.platform_data = &toshiba_pdata,
-	}
-};
-
-#endif  /* LGE Not Used */
-
 static struct msm_bus_vectors dtv_bus_init_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_MDP_PORT0,
@@ -1189,76 +920,17 @@ static int hdmi_panel_power(int on)
 
 static int hdmi_enable_5v(int on)
 {
-#if !defined(CONFIG_MACH_LGE)
-	/* TBD: PM8921 regulator instead of 8901 */
-	static struct regulator *reg_8921_hdmi_mvs;	/* HDMI_5V */
-	static int prev_on;
-	int rc;
-
-	if (on == prev_on)
-		return 0;
-
-	if (!reg_8921_hdmi_mvs) {
-		reg_8921_hdmi_mvs = regulator_get(&hdmi_msm_device.dev,
-			"hdmi_mvs");
-		if (IS_ERR(reg_8921_hdmi_mvs)) {
-			pr_err("could not get reg_8921_hdmi_mvs, rc = %ld\n",
-				PTR_ERR(reg_8921_hdmi_mvs));
-			reg_8921_hdmi_mvs = NULL;
-			return -ENODEV;
-		}
-	}
-
-	if (on) {
-		rc = regulator_enable(reg_8921_hdmi_mvs);
-		if (rc) {
-			pr_err("'%s' regulator enable failed, rc=%d\n",
-				"8921_hdmi_mvs", rc);
-			return rc;
-		}
-		pr_debug("%s(on): success\n", __func__);
-	} else {
-		rc = regulator_disable(reg_8921_hdmi_mvs);
-		if (rc)
-			pr_warning("'%s' regulator disable failed, rc=%d\n",
-				"8921_hdmi_mvs", rc);
-		pr_debug("%s(off): success\n", __func__);
-	}
-
-	prev_on = on;
-#endif
-
 	return 0;
 }
 
 static int hdmi_core_power(int on, int show)
 {
-#if defined(CONFIG_MACH_LGE)
 	static struct regulator *reg_8921_lvs7;
 	static int prev_on;
 	int rc;
-#else
-	static struct regulator *reg_8921_lvs7, *reg_8921_s4, *reg_ext_3p3v;
-	static int prev_on;
-	int rc;
-#endif
 
 	if (on == prev_on)
 		return 0;
-
-#if !defined(CONFIG_MACH_LGE)
-	/* TBD: PM8921 regulator instead of 8901 */
-	if (!reg_ext_3p3v) {
-		reg_ext_3p3v = regulator_get(&hdmi_msm_device.dev,
-					     "hdmi_mux_vdd");
-		if (IS_ERR_OR_NULL(reg_ext_3p3v)) {
-			pr_err("could not get reg_ext_3p3v, rc = %ld\n",
-			       PTR_ERR(reg_ext_3p3v));
-			reg_ext_3p3v = NULL;
-			return -ENODEV;
-		}
-	}
-#endif
 
 	if (!reg_8921_lvs7) {
 		reg_8921_lvs7 = regulator_get(&hdmi_msm_device.dev,
@@ -1270,44 +942,8 @@ static int hdmi_core_power(int on, int show)
 			return -ENODEV;
 		}
 	}
-	
-#if !defined(CONFIG_MACH_LGE)
-	if (!reg_8921_s4) {
-		reg_8921_s4 = regulator_get(&hdmi_msm_device.dev,
-					    "hdmi_lvl_tsl");
-		if (IS_ERR(reg_8921_s4)) {
-			pr_err("could not get reg_8921_s4, rc = %ld\n",
-				PTR_ERR(reg_8921_s4));
-			reg_8921_s4 = NULL;
-			return -ENODEV;
-		}
-		rc = regulator_set_voltage(reg_8921_s4, 1800000, 1800000);
-		if (rc) {
-			pr_err("set_voltage failed for 8921_s4, rc=%d\n", rc);
-			return -EINVAL;
-		}
-	}
-#endif
 
 	if (on) {
-
-#if !defined(CONFIG_MACH_LGE)
-		/*
-		 * Configure 3P3V_BOOST_EN as GPIO, 8mA drive strength,
-		 * pull none, out-high
-		 */
-		rc = regulator_set_optimum_mode(reg_ext_3p3v, 290000);
-		if (rc < 0) {
-			pr_err("set_optimum_mode ext_3p3v failed, rc=%d\n", rc);
-			return -EINVAL;
-		}
-
-		rc = regulator_enable(reg_ext_3p3v);
-		if (rc) {
-			pr_err("enable reg_ext_3p3v failed, rc=%d\n", rc);
-			return rc;
-		}
-#endif
 
 		rc = regulator_enable(reg_8921_lvs7);
 		if (rc) {
@@ -1316,35 +952,13 @@ static int hdmi_core_power(int on, int show)
 			goto error1;
 		}
 		
-#if !defined(CONFIG_MACH_LGE)
-		rc = regulator_enable(reg_8921_s4);
-		if (rc) {
-			pr_err("'%s' regulator enable failed, rc=%d\n",
-				"hdmi_lvl_tsl", rc);
-			goto error2;
-		}
-#endif
 		pr_debug("%s(on): success\n", __func__);
 	} else {
-#if !defined(CONFIG_MACH_LGE)
-		rc = regulator_disable(reg_ext_3p3v);
-		if (rc) {
-			pr_err("disable reg_ext_3p3v failed, rc=%d\n", rc);
-			return -ENODEV;
-		}
-#endif
 		rc = regulator_disable(reg_8921_lvs7);
 		if (rc) {
 			pr_err("disable reg_8921_l23 failed, rc=%d\n", rc);
 			return -ENODEV;
 		}
-#if !defined(CONFIG_MACH_LGE)
-		rc = regulator_disable(reg_8921_s4);
-		if (rc) {
-			pr_err("disable reg_8921_s4 failed, rc=%d\n", rc);
-			return -ENODEV;
-		}
-#endif
 		pr_debug("%s(off): success\n", __func__);
 	}
 
@@ -1352,14 +966,7 @@ static int hdmi_core_power(int on, int show)
 
 	return 0;
 
-#if !defined(CONFIG_MACH_LGE)
-error2:
-	regulator_disable(reg_8921_lvs7);
-#endif
 error1:
-#if !defined(CONFIG_MACH_LGE)
-	regulator_disable(reg_ext_3p3v);
-#endif
 	return rc;
 }
 
@@ -1391,20 +998,6 @@ static int hdmi_gpio_config(int on)
 				"HDMI_HPD", HDMI_HPD_GPIO, rc);
 			goto error3;
 		}
-		
-#if !defined(CONFIG_MACH_LGE)
-
-		if (machine_is_apq8064_liquid()) {
-			rc = gpio_request(pmic_gpio14, "PMIC_HDMI_MUX_SEL");
-			if (rc) {
-				pr_err("'%s'(%d) gpio_request failed, rc=%d\n",
-					"PMIC_HDMI_MUX_SEL", 14, rc);
-				goto error4;
-			}
-			gpio_set_value_cansleep(pmic_gpio14, 0);
-		}
-#endif
-
 		pr_debug("%s(on): success\n", __func__);
 
 	} else {
@@ -1412,21 +1005,12 @@ static int hdmi_gpio_config(int on)
 		gpio_free(HDMI_DDC_DATA_GPIO);
 		gpio_free(HDMI_HPD_GPIO);
 
-#if !defined(CONFIG_MACH_LGE)
-		if (machine_is_apq8064_liquid()) {
-			gpio_set_value_cansleep(pmic_gpio14, 1);
-			gpio_free(pmic_gpio14);
-		}
-
-#endif
 		pr_debug("%s(off): success\n", __func__);
 	}
 
 	prev_on = on;
 
 	return 0;
-
-#if defined(CONFIG_MACH_LGE)
 
 error3:
 	gpio_free(HDMI_DDC_DATA_GPIO);
@@ -1434,52 +1018,11 @@ error2:
 	gpio_free(HDMI_DDC_CLK_GPIO);
 error1:
 	return rc;	
-
-#else
-
-error4:
-	gpio_free(HDMI_HPD_GPIO);
-error3:
-	gpio_free(HDMI_DDC_DATA_GPIO);
-error2:
-	gpio_free(HDMI_DDC_CLK_GPIO);
-error1:
-	return rc;
-
-#endif
 }
 
 static int hdmi_cec_power(int on)
 {
-#if !defined(CONFIG_MACH_LGE)
-
-	static int prev_on;
-	int rc;
-
-	if (on == prev_on)
-		return 0;
-
-	if (on) {
-		rc = gpio_request(HDMI_CEC_VAR_GPIO, "HDMI_CEC_VAR");
-		if (rc) {
-			pr_err("'%s'(%d) gpio_request failed, rc=%d\n",
-				"HDMI_CEC_VAR", HDMI_CEC_VAR_GPIO, rc);
-			goto error;
-		}
-		pr_debug("%s(on): success\n", __func__);
-	} else {
-		gpio_free(HDMI_CEC_VAR_GPIO);
-		pr_debug("%s(off): success\n", __func__);
-	}
-
-	prev_on = on;
-
 	return 0;
-error:
-	return rc;
-#else
-	return 0;
-#endif
 }
 
 #if defined (CONFIG_LGE_BACKLIGHT_LM3530)
@@ -2150,23 +1693,9 @@ void __init apq8064_init_fb(void)
 	platform_device_register(&wfd_device);
 #endif
 
-#if !defined(CONFIG_MACH_LGE)
-	platform_device_register(&msm_fb_device);
-	platform_device_register(&lvds_chimei_panel_device);
-
-
-	if (machine_is_apq8064_liquid())
-		platform_device_register(&mipi_dsi2lvds_bridge_device);
-	if (machine_is_apq8064_mtp())
-		platform_device_register(&mipi_dsi_toshiba_panel_device);
-#else
 	platform_add_devices(j1_panel_devices, ARRAY_SIZE(j1_panel_devices));
-#endif
 
 	msm_fb_register_device("mdp", &mdp_pdata);
-#if !defined(CONFIG_MACH_LGE)
-	msm_fb_register_device("lvds", &lvds_pdata);
-#endif
 	msm_fb_register_device("mipi_dsi", &mipi_dsi_pdata);
 
 	platform_device_register(&hdmi_msm_device);
@@ -2174,89 +1703,6 @@ void __init apq8064_init_fb(void)
 
 }
 
-#ifndef CONFIG_MACH_LGE
-/**
- * Set MDP clocks to high frequency to avoid DSI underflow
- * when using high resolution 1200x1920 WUXGA panels
- */
-static void set_mdp_clocks_for_wuxga(void)
-{
-	int i;
-
-	mdp_ui_vectors[0].ab = 2000000000;
-	mdp_ui_vectors[0].ib = 2000000000;
-	mdp_vga_vectors[0].ab = 2000000000;
-	mdp_vga_vectors[0].ib = 2000000000;
-	mdp_720p_vectors[0].ab = 2000000000;
-	mdp_720p_vectors[0].ib = 2000000000;
-	mdp_1080p_vectors[0].ab = 2000000000;
-	mdp_1080p_vectors[0].ib = 2000000000;
-
-	mdp_pdata.mdp_core_clk_rate = 200000000;
-
-	for (i = 0; i < ARRAY_SIZE(mdp_core_clk_rate_table); i++)
-		mdp_core_clk_rate_table[i] = 200000000;
-
-	if (apq8064_hdmi_as_primary_selected()) {
-		dtv_bus_def_vectors[0].ab = 2000000000;
-		dtv_bus_def_vectors[0].ib = 2000000000;
-	}
-}
-
-void __init apq8064_set_display_params(char *prim_panel, char *ext_panel)
-{
-	/*
-	 * For certain MPQ boards, HDMI should be set as primary display
-	 * by default, with the flexibility to specify any other panel
-	 * as a primary panel through boot parameters.
-	 */
-	if (machine_is_mpq8064_hrd() || machine_is_mpq8064_cdp()) {
-		pr_debug("HDMI is the primary display by default for MPQ\n");
-		if (!strnlen(prim_panel, PANEL_NAME_MAX_LEN))
-			strlcpy(msm_fb_pdata.prim_panel_name, HDMI_PANEL_NAME,
-				PANEL_NAME_MAX_LEN);
-	}
-
-	if (strnlen(prim_panel, PANEL_NAME_MAX_LEN)) {
-		strlcpy(msm_fb_pdata.prim_panel_name, prim_panel,
-			PANEL_NAME_MAX_LEN);
-		pr_debug("msm_fb_pdata.prim_panel_name %s\n",
-			msm_fb_pdata.prim_panel_name);
-
-		if (!strncmp((char *)msm_fb_pdata.prim_panel_name,
-			HDMI_PANEL_NAME, strnlen(HDMI_PANEL_NAME,
-				PANEL_NAME_MAX_LEN))) {
-			pr_debug("HDMI is the primary display by"
-				" boot parameter\n");
-			hdmi_is_primary = 1;
-			set_mdp_clocks_for_wuxga();
-		}
-	}
-	if (strnlen(ext_panel, PANEL_NAME_MAX_LEN)) {
-		strlcpy(msm_fb_pdata.ext_panel_name, ext_panel,
-			PANEL_NAME_MAX_LEN);
-		pr_debug("msm_fb_pdata.ext_panel_name %s\n",
-			msm_fb_pdata.ext_panel_name);
-	}
-}
-#endif
-
-//LGE_UPDATE_S hojin.ryu@lge.com Backlight Pdata is migrated into Board-j1-display 20120413
-#define I2C_SURF 1
-#define I2C_FFA  (1 << 1)
-#define I2C_RUMI (1 << 2)
-#define I2C_SIM  (1 << 3)
-#define I2C_LIQUID (1 << 4)
-#define I2C_J1V (1 << 5)
-
-struct i2c_registry {
-	u8                     machs;
-	int                    bus;
-	struct i2c_board_info *info;
-	int                    len;
-};
-
-//#if defined(CONFIG_MACH_LGE)
 #if defined(CONFIG_LGE_BACKLIGHT_CABC)
 #define PWM_SIMPLE_EN 0xA0
 #define PWM_BRIGHTNESS 0x20
@@ -2362,7 +1808,6 @@ void __init register_i2c_backlight_devices(void)
 						apq8064_i2c_backlight_device[i].len);
 	}
 }
-//#endif
 //LGE_UPDATE_E hojin.ryu@lge.com Backlight Pdata is migrated into Board-j1-display 20120413
 
 #ifdef CONFIG_LGE_HIDDEN_RESET

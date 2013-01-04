@@ -432,6 +432,9 @@ static struct pm8xxx_adc_arb_btm_param btm_config;
 
 #ifdef CONFIG_WIRELESS_CHARGER
 static int wireless_charging;
+#endif
+
+#ifdef CONFIG_LGE_CHARGER_TEMP_SCENARIO
 static unsigned int last_stop_charging;
 static unsigned int chg_batt_temp_state;
 /*
@@ -5878,7 +5881,7 @@ static ssize_t at_chg_complete_store(struct device *dev,
 		/* charging complete */
 		printk(KERN_INFO "at_chg_complete_store : charging complete start\n");
 		if (batt_status != POWER_SUPPLY_STATUS_FULL) {
-			ret = pm8921_stop_charging_for_ATCMD();
+			ret = pm8921_stop_chg_disable_irq();
 			pm_chg_auto_enable(chip, 0);
 			printk(KERN_INFO "at_chg_complete_store : charging complete end\n");
 		}

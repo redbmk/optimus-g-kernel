@@ -15,24 +15,6 @@
 #if defined(CONFIG_LGE_NFC_PN544)
 #include <linux/nfc/pn544_lge.h>
 
-/* ehee.lee@lge.com */
-#define I2C_SURF 1
-#define I2C_FFA  (1 << 1)
-#define I2C_RUMI (1 << 2)
-#define I2C_SIM  (1 << 3)
-#define I2C_LIQUID (1 << 4)
-/* LGE_UPDATE_S. 02242012. jihyun.lee@lge.com
-   Add mach_mask for I2C */
-#define I2C_J1V (1 << 5)
-/* LGE_UPDATE_E */
-
-struct i2c_registry {
-	u8                     machs;
-	int                    bus;
-	struct i2c_board_info *info;
-	int                    len;
-};
-
 typedef void (gpio_i2c_init_func_t)(int bus_num);
 /* ehee.lee@lge.com */
 

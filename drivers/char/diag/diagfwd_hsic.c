@@ -46,7 +46,7 @@
 
 #define NUM_HSIC_BUF_TBL_ENTRIES N_MDM_WRITE
 
-#if defined(CONFIG_LGE_HANDLE_PANIC)//unchol.park
+#if defined(CONFIG_LGE_CRASH_HANDLER)//unchol.park
 #include <mach/board_lge.h>
 #endif
 
@@ -172,7 +172,7 @@ static void diag_hsic_read_complete_callback(void *ctxt, char *buf,
 	if ((actual_size == 0) && 
 		(driver->logging_mode == DM_APP_MODE)) {			
 		diagmem_free(driver, buf, POOL_TYPE_HSIC);
-		queue_work(driver->diag_hsic_wq, 
+		queue_work(driver->diag_bridge_wq, 
 			&driver->diag_read_hsic_work);
 		return;
 	}
@@ -225,7 +225,7 @@ static void diag_hsic_read_complete_callback(void *ctxt, char *buf,
 
 #ifdef CONFIG_LGE_DM_APP
 	if (err && (driver->logging_mode == DM_APP_MODE))
-		queue_work(driver->diag_hsic_wq,
+		queue_work(driver->diag_bridge_wq,
 				&driver->diag_read_hsic_work);
 #endif
 }
@@ -236,7 +236,7 @@ static void diag_hsic_write_complete_callback(void *ctxt, char *buf,
 	/* The write of the data to the HSIC bridge is complete */
 	driver->in_busy_hsic_write = 0;
 
-#if defined(CONFIG_LGE_HANDLE_PANIC)//unchol.park
+#if defined(CONFIG_LGE_CRASH_HANDLER)//unchol.park
 	if(lge_pm_get_cable_type() == CABLE_130K)
 		printk("[MDM TEST] Send packet to MDM Complete!!: 1st 6 bytes - %d, %d, %d, %d, %d, %d len = %d \n",
 				*buf, *(buf + 1), *(buf + 2), *(buf + 3), *(buf + 4), *(buf + 5), actual_size);
@@ -506,7 +506,7 @@ static int diagfwd_read_complete_bridge(struct diag_request *diag_read_ptr)
 		 */
 		int err;
 		driver->in_busy_hsic_write = 1;
-#if defined(CONFIG_LGE_HANDLE_PANIC)//unchol.park
+#if defined(CONFIG_LGE_CRASH_HANDLER)//unchol.park
 		if(lge_pm_get_cable_type() == CABLE_130K)
 			printk("[MDM TEST] Send packet to MDM : 1st 6 bytes - %d, %d, %d, %d, %d, %d len = %d \n",
 					*driver->usb_buf_mdm_out, *(driver->usb_buf_mdm_out + 1), *(driver->usb_buf_mdm_out + 2), 
@@ -718,12 +718,12 @@ static int diag_hsic_probe(struct platform_device *pdev)
 	
 			if (driver->usb_mdm_connected) {
 				/* Poll USB mdm channel to check for data */
-				queue_work(driver->diag_hsic_wq,
+				queue_work(driver->diag_bridge_wq,
 						 &driver->diag_read_mdm_work);
 			}
 	
 			/* Poll HSIC channel to check for data */
-			queue_work(driver->diag_hsic_wq, &driver->diag_read_hsic_work);
+			queue_work(driver->diag_bridge_wq, &driver->diag_read_hsic_work);
 		}
 #endif
 
@@ -733,8 +733,8 @@ err:
 	kfree(driver->buf_in_hsic);
 	kfree(driver->usb_buf_mdm_out);
 	kfree(driver->usb_read_mdm_ptr);
-	if (driver->diag_hsic_wq)
-		destroy_workqueue(driver->diag_hsic_wq);
+	if (driver->diag_bridge_wq)
+		destroy_workqueue(driver->diag_bridge_wq);
 
 	return -ENOMEM;
 }

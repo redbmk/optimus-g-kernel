@@ -1459,7 +1459,8 @@ static int do_get_serial(struct fsg_common *common, struct fsg_buffhd *bh)
 	/* msm_get_MEID_type(imei_temp); */
 	if (lgeusb_get_phone_id(imei_temp) < 0)
 		strcpy(imei_temp, "00000000000000");
-	hex2bin(imei_hex, imei_temp, 7);
+	if (hex2bin(imei_hex, imei_temp, 7) < 0)
+		return -EINVAL;
 	for (i = 0; i < 7; i++) {
 		buf[6-i] = imei_hex[i];
 	}

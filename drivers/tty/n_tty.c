@@ -1663,9 +1663,9 @@ static int copy_from_read_buf(struct tty_struct *tty,
 			if (retval < 0)
 				dbg_log_event(NULL, "cp_frm_r_buf:retval", retval);
 			else
-				dbg_log_event(NULL, "cp_frm_r_buf:read_tail",tty->read_tail);
-				dbg_log_event(NULL, "cp_frm_r_buf:n",tty->n);
-				dbg_log_event(NULL, "cp_frm_r_buf:read_cnt",tty->read_cnt);
+				dbg_log_event(NULL, "cp_frm_r_buf:read_tail", tty->read_tail);
+				dbg_log_event(NULL, "cp_frm_r_buf:n", n);
+				dbg_log_event(NULL, "cp_frm_r_buf:read_cnt", tty->read_cnt);
 			
 		}
 		/* Turn single EOF into zero-length read */

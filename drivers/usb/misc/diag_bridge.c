@@ -30,7 +30,7 @@
 #include <mach/hsic_debug_ch.h>
 #endif
 
-#if defined(CONFIG_LGE_HANDLE_PANIC)//unchol.park
+#if defined(CONFIG_LGE_CRASH_HANDLER)//unchol.park
 #include <mach/board_lge.h>
 #endif
 
@@ -281,7 +281,7 @@ int diag_bridge_write(char *data, int size)
 	ret = usb_submit_urb(urb, GFP_KERNEL);
 	
 	if (ret) {
-#if defined(CONFIG_LGE_HANDLE_PANIC)//unchol.park
+#if defined(CONFIG_LGE_CRASH_HANDLER)//unchol.park
 		if(lge_pm_get_cable_type() == CABLE_130K)
 			printk("[MDM TEST] usb_submit_urb failed. ret = %d\n", ret);
 #endif

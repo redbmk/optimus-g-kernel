@@ -30,7 +30,7 @@ static struct dsi_buf lgit_rx_buf;
 static int __init mipi_lgit_lcd_init(void);
 
 
- int mipi_lgit_lcd_on(struct platform_device *pdev)
+int mipi_lgit_lcd_on(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
 	int cnt = 0;
@@ -57,8 +57,8 @@ static int __init mipi_lgit_lcd_init(void);
 
 		return cnt;
 }
- int mipi_lgit_lcd_off(struct platform_device *pdev)
 
+int mipi_lgit_lcd_off(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
 	int cnt = 0;

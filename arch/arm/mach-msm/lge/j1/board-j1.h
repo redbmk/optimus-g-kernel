@@ -13,7 +13,7 @@
 #ifndef __ARCH_ARM_MACH_MSM_BOARD_APQ8064_H
 #define __ARCH_ARM_MACH_MSM_BOARD_APQ8064_H
 
-#include <linux/regulator/gpio-regulator.h>
+#include <linux/regulator/msm-gpio-regulator.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
 #include <linux/mfd/pm8xxx/pm8821.h>
 #include <mach/msm_memtypes.h>
@@ -196,4 +196,21 @@ extern struct msm_cache_dump_platform_data apq8064_cache_dump_pdata;
 void apq8064_init_input(void);	//yoogyeong.lee@lge.com
 #endif
 void __init apq8064_init_misc(void);
+
+#define I2C_SURF    1
+#define I2C_FFA     (1 << 1)
+#define I2C_RUMI    (1 << 2)
+#define I2C_SIM     (1 << 3)
+#define I2C_LIQUID  (1 << 4)
+#define I2C_J1V     (1 << 5)
+#define I2C_MPQ_HRD (1 << 6)
+#define I2C_MPQ_DTV (1 << 7)
+
+struct i2c_registry {
+	u8                     machs;
+	int                    bus;
+	struct i2c_board_info *info;
+	int                    len;
+};
+
 #endif

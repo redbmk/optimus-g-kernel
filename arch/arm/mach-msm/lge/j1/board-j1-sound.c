@@ -3,19 +3,19 @@
 #include <linux/platform_device.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
 #include <linux/regulator/consumer.h>
+#include <linux/platform_data/hds_fsa8008.h>
+#include <mach/board_lge.h>
 #include "devices.h"
-//#include CONFIG_BOARD_HEADER_FILE
 
 #include "board-8064.h"
 
 #ifdef CONFIG_SWITCH_FSA8008
-#include "../../../../sound/soc/codecs/wcd9310.h" // 2012-02-06, mint.choi@lge.com. for fsa8008 tabla_codec_micbias2_ctl API
+#include "../../../../../sound/soc/codecs/wcd9310.h" // 2012-02-06, mint.choi@lge.com. for fsa8008 tabla_codec_micbias2_ctl API
 #endif
 
-#include "../../../../include/sound/tpa2028d.h"
+#include <sound/tpa2028d.h>
 
 #include "board-j1.h"
-#include <mach/board_lge.h>
 
 
 #if defined(CONFIG_MACH_LGE)  //by ehgrace.kim@lge.com
@@ -40,16 +40,12 @@
 #define GPIO_EARPOL_DETECT					PM8921_GPIO_PM_TO_SYS(32)
 #define GPIO_EAR_KEY_INT					83
 
-
 #define I2C_SURF 1
 #define I2C_FFA  (1 << 1)
 #define I2C_RUMI (1 << 2)
 #define I2C_SIM  (1 << 3)
 #define I2C_LIQUID (1 << 4)
-/* LGE_UPDATE_S. 02242012. jihyun.lee@lge.com
-   Add mach_mask for I2C */
 #define I2C_J1V (1 << 5)
-/* LGE_UPDATE_E */
 
 struct i2c_registry {
 	u8                     machs;
@@ -57,25 +53,6 @@ struct i2c_registry {
 	struct i2c_board_info *info;
 	int                    len;
 };
-
-
-struct fsa8008_platform_data {
-	const char *switch_name;            /* switch device name */
-	const char *keypad_name;			/* keypad device name */
-
-	unsigned int key_code;				/* key code for hook */
-
-	unsigned int gpio_detect;	/* DET : to detect jack inserted or not */
-	unsigned int gpio_mic_en;	/* EN : to enable mic */
-	unsigned int gpio_jpole;	/* JPOLE : 3pole or 4pole */
-	unsigned int gpio_key;		/* S/E button */
-
-	void (*set_headset_mic_bias)(int enable); /* callback function which is initialized while probing */
-
-	unsigned int latency_for_detection; /* latency for pole (3 or 4)detection (in ms) */
-};
-
-
 
 int amp_power(bool on)
 {
@@ -182,10 +159,7 @@ static struct fsa8008_platform_data lge_hs_pdata = {
 	.gpio_jpole  = GPIO_EARPOL_DETECT,
 	.gpio_key    = GPIO_EAR_KEY_INT,
 
-/*	.set_headset_mic_bias = fsa8008_set_headset_mic_bias,*/
-
 	.latency_for_detection = 75,
-//	.set_headset_mic_bias = tabla_codec_micbias2_ctl, // 2012-02-06, mint.choi@lge.com. for fsa8008 tabla_codec_micbias2_ctl API
 };
 
 static struct platform_device lge_hsd_device = {

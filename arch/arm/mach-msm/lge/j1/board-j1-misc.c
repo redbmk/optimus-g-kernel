@@ -28,7 +28,7 @@
 #include "devices.h"
 #include <linux/android_vibrator.h>
 
-#include <linux/regulator/gpio-regulator.h>
+#include <linux/regulator/msm-gpio-regulator.h>
 #include <linux/i2c.h>
 
 #ifdef CONFIG_LGE_ISA1200
@@ -495,24 +495,6 @@ static int mhl_power_onoff(bool on, bool pm_ctrl)
 
 static struct mhl_platform_data mhl_pdata = {
 	.power = mhl_power_onoff,
-};
-
-
-#define I2C_SURF 1
-#define I2C_FFA  (1 << 1)
-#define I2C_RUMI (1 << 2)
-#define I2C_SIM  (1 << 3)
-#define I2C_LIQUID (1 << 4)
-/* LGE_UPDATE_S. 02242012. jihyun.lee@lge.com
-   Add mach_mask for I2C */
-#define I2C_J1V (1 << 5)
-/* LGE_UPDATE_E */
-
-struct i2c_registry {
-	u8                     machs;
-	int                    bus;
-	struct i2c_board_info *info;
-	int                    len;
 };
 
 struct i2c_board_info i2c_mhl_info[] = {

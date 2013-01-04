@@ -387,7 +387,6 @@ static int msm_spkramp_event(struct snd_soc_dapm_widget *w,
 		}
 	}
 	return 0;
-#endif
 }
 
 static int msm_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,

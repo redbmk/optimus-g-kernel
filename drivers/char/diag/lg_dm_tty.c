@@ -449,7 +449,7 @@ static int lge_dm_tty_read_thread(void *data)
 #endif
 #ifdef CONFIG_DIAG_BRIDGE_CODE
 				if (driver->hsic_ch)
-					queue_work(driver->diag_hsic_wq,
+					queue_work(driver->diag_bridge_wq,
 						&(driver->diag_read_hsic_work));
 #endif
 			}

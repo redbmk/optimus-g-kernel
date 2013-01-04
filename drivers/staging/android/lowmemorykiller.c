@@ -139,26 +139,6 @@ void tune_lmk_param(int *other_free, int *other_file, struct shrink_control *sc)
 		lowmem_print(4, "lowmem_shrink tunning for others ofree %d, "
 			     "%d\n", *other_free, *other_file);
 	}
-#ifdef CONFIG_MACH_LGE
-#ifdef CONFIG_HIGHMEM
-	for_each_zone(zone) {
-		if (zone_idx(zone) == ZONE_NORMAL) {
-			if (zone->lowmem_reserve[ZONE_HIGHMEM] <
-				zone_page_state(zone, NR_FREE_PAGES)) {
-				*other_free -= zone->lowmem_reserve[ZONE_HIGHMEM];
-				lowmem_print(4, "lowmem_reserve discounted "
-					"%lu pages in normal zone\n",
-					zone->lowmem_reserve[ZONE_HIGHMEM]);
-			} else {
-				*other_free -= zone_page_state(zone, NR_FREE_PAGES);
-				lowmem_print(4, "lowmem_free discounted "
-					"%lu pages in normal zone\n",
-					zone_page_state(zone, NR_FREE_PAGES));
-			}
-		}
-	}
-#endif
-#endif
 }
 
 static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)

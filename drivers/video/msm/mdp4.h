@@ -956,8 +956,4 @@ void mdp4_writeback_dma_busy_wait(struct msm_fb_data_type *mfd);
 void mdp4_writeback_kickoff_video(struct msm_fb_data_type *mfd,
 		struct mdp4_overlay_pipe *pipe);
 #endif
-
-void mdp4_overlay_dsi_video_wait4idle(struct msm_fb_data_type *mfd);
-void mdp4_overlay_dtv_wait4idle(struct msm_fb_data_type *mfd);
-void mdp4_overlay_lcdc_wait4idle(struct msm_fb_data_type *mfd);
 #endif /* MDP_H */

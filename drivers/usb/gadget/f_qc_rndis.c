@@ -299,18 +299,18 @@ static struct usb_endpoint_descriptor rndis_qc_ss_notify_desc = {
 
 	.bEndpointAddress =	USB_DIR_IN,
 	.bmAttributes =		USB_ENDPOINT_XFER_INT,
-	.wMaxPacketSize =	cpu_to_le16(STATUS_BYTECOUNT),
+	.wMaxPacketSize =	cpu_to_le16(RNDIS_QC_STATUS_BYTECOUNT),
 	.bInterval =		LOG2_STATUS_INTERVAL_MSEC + 4,
 };
 
 static struct usb_ss_ep_comp_descriptor rndis_qc_ss_intr_comp_desc = {
-	.bLength =		sizeof ss_intr_comp_desc,
+	.bLength =		sizeof rndis_qc_ss_intr_comp_desc,
 	.bDescriptorType =	USB_DT_SS_ENDPOINT_COMP,
 
 	/* the following 3 values can be tweaked if necessary */
 	/* .bMaxBurst =		0, */
 	/* .bmAttributes =	0, */
-	.wBytesPerInterval =	cpu_to_le16(STATUS_BYTECOUNT),
+	.wBytesPerInterval =	cpu_to_le16(RNDIS_QC_STATUS_BYTECOUNT),
 };
 
 static struct usb_endpoint_descriptor rndis_qc_ss_in_desc = {
@@ -332,7 +332,7 @@ static struct usb_endpoint_descriptor rndis_qc_ss_out_desc = {
 };
 
 static struct usb_ss_ep_comp_descriptor rndis_qc_ss_bulk_comp_desc = {
-	.bLength =		sizeof ss_bulk_comp_desc,
+	.bLength =		sizeof rndis_qc_ss_bulk_comp_desc,
 	.bDescriptorType =	USB_DT_SS_ENDPOINT_COMP,
 
 	/* the following 2 values can be tweaked if necessary */
@@ -341,7 +341,7 @@ static struct usb_ss_ep_comp_descriptor rndis_qc_ss_bulk_comp_desc = {
 };
 
 static struct usb_descriptor_header *eth_qc_ss_function[] = {
-	(struct usb_descriptor_header *) &rndis_iad_descriptor,
+	(struct usb_descriptor_header *) &rndis_qc_iad_descriptor,
 
 	/* control interface matches ACM, not Ethernet */
 	(struct usb_descriptor_header *) &rndis_qc_control_intf,

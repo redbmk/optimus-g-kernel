@@ -455,94 +455,6 @@ void mdp4_lcdc_base_swap(int cndx, struct mdp4_overlay_pipe *pipe)
 	vctrl->base_pipe = pipe;
 }
 
-/*
- * MDP Timer/Functions
- * Set up an HR timer to wake up the CPU's just before the return of a VSync
- * This reduces any latencies that may arise if the CPU's were power collapsed
- * in between.
- */
-#define VSYNC_INTERVAL	16
-#define WAKE_DELAY	3 /* 3 ioctls * 600 us = 2ms + 1ms buffer */
-#define MAX_VSYNC_GAP   4 /* Marker to detect whether to skip timer */
-
-/* Move the globals into context data structure for 3.4 upgrade */
-static int first_time = 1;
-static ktime_t last_vsync_time_ns;
-static struct hrtimer hr_mdp_timer_pc;
-
-static unsigned long compute_vsync_interval(void)
-{
-	ktime_t currtime_us;
-	unsigned long diff_from_vsync, vsync_interval;
-	/*
-	 * Get interval beween last vsync and current time
-	 * Current time = CPU programming MDP for next Vsync
-	 */
-	currtime_us = ktime_get();
-	diff_from_vsync =
-		(ktime_to_us(ktime_sub(currtime_us, last_vsync_time_ns)));
-	diff_from_vsync /= USEC_PER_MSEC;
-	/*
-	 * If the last Vsync occurred more than 64 ms ago, skip programming
-	 * the timer
-	 */
-	if (diff_from_vsync < (VSYNC_INTERVAL*MAX_VSYNC_GAP)) {
-		vsync_interval =
-			(VSYNC_INTERVAL-diff_from_vsync)%VSYNC_INTERVAL;
-	} else
-		vsync_interval = VSYNC_INTERVAL+1;
-
-	return vsync_interval;
-}
-
-static enum hrtimer_restart mdp_pc_hrtimer_callback(struct hrtimer *timer)
-{
-	if (!wake_lock_active(&mdp_idle_wakelock)) {
-		/* Hold Wakelock if no locks held */
-		wake_lock(&mdp_idle_wakelock);
-	}
-	return HRTIMER_NORESTART;
-}
-
-static void init_pc_timer(void)
-{
-	/*
-	 * Initialize hr timer which fires a few ms before Vsync - this
-	 * gets rid of any latencies that may arise due to
-	 * wake up from PC
-	 */
-	hrtimer_init(&hr_mdp_timer_pc, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-	hr_mdp_timer_pc.function = &mdp_pc_hrtimer_callback;
-}
-
-static void program_pc_timer(unsigned long diff_interval)
-{
-	ktime_t ktime_pc;
-	unsigned long delay_in_ns = 0;
-
-	/* Skip programming timer due to invalid delay */
-	if (diff_interval > VSYNC_INTERVAL)
-		return;
-
-	if (diff_interval < WAKE_DELAY) {
-		/*
-		 * Difference from last vsync was a multiple of refresh rate
-		 * (16*x)%16). Reset it to actual time to next vsync
-		 */
-		if (diff_interval == 0)
-			delay_in_ns = VSYNC_INTERVAL-WAKE_DELAY;
-		else
-			return;	/* too close to vsync to fire timer - skip */
-	} else if (diff_interval == WAKE_DELAY) {
-		delay_in_ns = 1;  /* diff_interval/WAKE_DELAY */
-	} else {
-		delay_in_ns = diff_interval-WAKE_DELAY;
-	}
-	delay_in_ns *= NSEC_PER_MSEC;
-	ktime_pc = ktime_set(0, delay_in_ns);
-	hrtimer_start(&hr_mdp_timer_pc, ktime_pc, HRTIMER_MODE_REL);
-}
-
 int mdp4_lcdc_on(struct platform_device *pdev)
 {
 	int lcdc_width;
@@ -882,40 +794,6 @@ static void mdp4_lcdc_blt_dmap_update(struct mdp4_overlay_pipe *pipe)
 	MDP_OUTP(MDP_BASE + 0x90008, addr);
 }
 
-static void mdp4_overlay_lcdc_wait4event(struct msm_fb_data_type *mfd,
-					int intr_done)
-{
-	unsigned long flag;
-	unsigned int data;
-    unsigned long vsync_interval;
-
-	data = inpdw(MDP_BASE + LCDC_BASE);
-	data &= 0x01;
-	if (data == 0)	/* timing generator disabled */
-		return;
-
-	if ((intr_done == INTR_PRIMARY_VSYNC) ||
-			(intr_done == INTR_DMA_P_DONE)) {
-		if (first_time) {
-			init_pc_timer();
-			first_time = 0;
-		}
-		vsync_interval = compute_vsync_interval();
-		program_pc_timer(vsync_interval);
-	}
-
-	spin_lock_irqsave(&mdp_spin_lock, flag);
-	INIT_COMPLETION(lcdc_comp);
-	mfd->dma->waiting = TRUE;
-	outp32(MDP_INTR_CLEAR, intr_done);
-	mdp_intr_mask |= intr_done;
-	outp32(MDP_INTR_ENABLE, mdp_intr_mask);
-	mdp_enable_irq(MDP_DMA2_TERM);  /* enable intr */
-	spin_unlock_irqrestore(&mdp_spin_lock, flag);
-	wait_for_completion(&lcdc_comp);
-	mdp_disable_irq(MDP_DMA2_TERM);
-}
-
 /*
  * mdp4_primary_vsync_lcdc: called from isr
  */
@@ -1039,11 +917,6 @@ static void mdp4_lcdc_do_blt(struct msm_fb_data_type *mfd, int enable)
 	pr_info("%s: enable=%d change=%d blt_addr=%x\n", __func__,
 		vctrl->blt_change, enable, (int)pipe->ov_blt_addr);
 
-	if (!vctrl->blt_change) {
-		spin_unlock_irqrestore(&vctrl->spin_lock, flag);
-		return;
-	}
-
 	spin_unlock_irqrestore(&vctrl->spin_lock, flag);
 }
 
@@ -1107,9 +980,4 @@ void mdp4_lcdc_overlay(struct msm_fb_data_type *mfd)
 		mdp4_lcdc_wait4dmap(0);
 
 	mdp4_overlay_mdp_perf_upd(mfd, 0);
-}
-
-void mdp4_overlay_lcdc_wait4idle(struct msm_fb_data_type *mfd)
-{
-	mdp4_overlay_lcdc_wait4event(mfd, INTR_DMA_P_DONE);
 }

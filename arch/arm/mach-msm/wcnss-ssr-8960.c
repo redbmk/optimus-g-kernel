@@ -66,7 +66,7 @@ static void smsm_state_cb_hdlr(void *data, uint32_t old_state,
 
 	if (!enable_riva_ssr){
 #if defined(CONFIG_LGE_CRASH_HANDLER)
-		lge_set_magic_for_subsystem("riva");
+		set_ssr_magic_number("riva");
 		msm_set_restart_mode(0x6d632130);
 #endif	
 		panic(MODULE_NAME ": SMSM reset request received from Riva");
@@ -108,7 +108,7 @@ static irqreturn_t riva_wdog_bite_irq_hdlr(int irq, void *dev_id)
 
 	if (!enable_riva_ssr){
 #if defined(CONFIG_LGE_CRASH_HANDLER)
-		lge_set_magic_for_subsystem("riva");
+		set_ssr_magic_number("riva");
 		msm_set_restart_mode(0x6d632130);
 #endif
 		panic(MODULE_NAME ": Watchdog bite received from Riva");
