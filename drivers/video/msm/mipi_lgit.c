@@ -219,6 +219,43 @@ int mipi_lgit_lcd_off(struct platform_device *pdev)
 	return 0;
 }
 
+int mipi_lgit_lcd_off_for_shutdown(void)
+{
+	int rc = 0;
+
+	printk("%s: jbshim mipi_lgit_lcd_off_for_shutdown \n", __func__);
+
+	MIPI_OUTP(MIPI_DSI_BASE + 0x38, 0x10000000);//HS mode
+	mipi_dsi_cmds_tx(&lgit_tx_buf,
+		mipi_lgit_pdata->power_off_set_1,
+		mipi_lgit_pdata->power_off_set_size_1);
+	MIPI_OUTP(MIPI_DSI_BASE + 0x38, 0x14000000);//LP mode
+
+	rc = gpio_request(DSV_ONBST,"DSV_ONBST_en");
+
+	if (rc) {
+		printk(KERN_INFO "%s: DSV_ONBST Request Fail \n", __func__);
+	} else {
+		rc = gpio_direction_output(DSV_ONBST, 1);   // OUTPUT
+		if (rc) {
+			printk(KERN_INFO "%s: DSV_ONBST Direction Set Fail \n", __func__);
+		}
+		else {
+			gpio_set_value(DSV_ONBST, 0);
+		}
+		gpio_free(DSV_ONBST);
+	}
+
+	mdelay(20);
+	MIPI_OUTP(MIPI_DSI_BASE + 0x38, 0x10000000);//HS mode
+	mipi_dsi_cmds_tx(&lgit_tx_buf,
+		mipi_lgit_pdata->power_off_set_2,
+		mipi_lgit_pdata->power_off_set_size_2);
+	MIPI_OUTP(MIPI_DSI_BASE + 0x38, 0x14000000);//LP mode
+
+	return 0;
+}
+
 static int mipi_lgit_backlight_on_status(void)
 {
 	return (mipi_lgit_pdata->bl_on_status());

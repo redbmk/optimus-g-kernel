@@ -303,7 +303,7 @@ __acquires(ehci->lock)
 }
 
 static void start_unlink_async (struct ehci_hcd *ehci, struct ehci_qh *qh);
-static void dbg_log_event(struct urb *urb, char * event, unsigned extra);
+void dbg_log_event(struct urb *urb, char * event, unsigned extra);
 static void unlink_async (struct ehci_hcd *ehci, struct ehci_qh *qh);
 
 static int qh_schedule (struct ehci_hcd *ehci, struct ehci_qh *qh);

@@ -197,7 +197,7 @@ static inline struct usb_hcd *ehci_to_hcd (struct ehci_hcd *ehci)
 }
 
 
-static void dbg_log_event(struct urb *urb, char * event, unsigned extra);
+void dbg_log_event(struct urb *urb, char * event, unsigned extra);
 
 static inline void
 iaa_watchdog_start(struct ehci_hcd *ehci)

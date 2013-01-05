@@ -32,8 +32,13 @@
 
 #include <asm/atomic.h>
 #include <linux/gpio.h>
+#include <media/rc-core.h>
 
 #include <linux/input/lge_touch_core.h>
+
+#if defined(CONFIG_TOUCH_REG_MAP_TM2000) || defined(CONFIG_TOUCH_REG_MAP_TM2372)
+struct i2c_client *ds4_i2c_client;
+#endif
 
 struct touch_device_driver*     touch_device_func;
 struct workqueue_struct*        touch_wq;
@@ -1709,6 +1714,9 @@ static int touch_probe(struct i2c_client *client,
 	get_section(&ts->st_info, ts->pdata);
 
 	ts->client = client;
+#if defined(CONFIG_TOUCH_REG_MAP_TM2000) || defined(CONFIG_TOUCH_REG_MAP_TM2372)
+	ds4_i2c_client = client;
+#endif
 	i2c_set_clientdata(client, ts);
 
 	ts->fw_info.fw_force_rework = false;

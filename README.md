@@ -1,12 +1,11 @@
 NOTE
 ====
-    This is not currently working (i.e. DOES NOT COMPILE) and therefore should only be used
-    for reference or to help with debugging. I will be making commits as I go and will update
-    this when I have a kernel that compiles.
+    This should be assumed to be a highly unstable kernel. It compiles, but has not been
+    tested. I would imagine there will be plenty of required tweaks before it is stable.
 
 DESCRIPTION
 ===========
-    This will be the kernel for the Optimus G.
+    This will be a kernel for the Optimus G.
 
     I am specifically working on the 3.4.0 kernel for the Sprint LG Optimus G (LS970),
     however I plan to include a branch for the 3.0.21 kernel and am hoping to have it working
@@ -14,4 +13,4 @@ DESCRIPTION
 
 STATUS
 ======
-    Seems to get past the compiling stage, but is having troubles linking.
+    Compiles! Creates a zImage file for j1sp-perf_defconfig

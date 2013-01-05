@@ -12,8 +12,6 @@
  */
 
 #if defined (CONFIG_LGE_QC_LCDC_LUT)
-extern int lge_set_qlut(void);
-extern unsigned int p_lg_qc_lcdc_lut[];
 
 #define NUM_QLUT 256
 #define R_MASK 0x00ff0000
@@ -24,9 +22,6 @@ extern unsigned int p_lg_qc_lcdc_lut[];
 #define B_SHIFT 8
 
 #if defined(CONFIG_LGE_KCAL_QLUT)
-extern int g_kcal_r;
-extern int g_kcal_g;
-extern int g_kcal_b;
 
 #define MAX_KCAL_V (NUM_QLUT-1)
 #define lut2r(lut) ((lut & R_MASK) >> R_SHIFT)

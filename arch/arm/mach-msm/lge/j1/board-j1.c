@@ -3236,7 +3236,10 @@ static void __init apq8064_cdp_init(void)
 	apq8064_init_fb();
 	apq8064_init_gpu();
 	platform_add_devices(apq8064_footswitch, apq8064_num_footswitch);
+
+#ifdef CONFIG_MSM_CAMERA
 	apq8064_init_cam();
+#endif
 
 	change_memory_power = &apq8064_change_memory_power;
 

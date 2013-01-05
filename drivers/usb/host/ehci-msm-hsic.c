@@ -212,7 +212,7 @@ static int allow_dbg_log(int ep_addr)
 	return 0;
 }
 
-static void dbg_log_event(struct urb *urb, char * event, unsigned extra)
+void dbg_log_event(struct urb *urb, char * event, unsigned extra)
 {
 	unsigned long flags;
 	int ep_addr;

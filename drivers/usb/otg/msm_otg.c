@@ -2287,9 +2287,6 @@ static void msm_otg_init_sm(struct msm_otg *motg)
 	}
 }
 
-#if defined(CONFIG_TOUCH_REG_MAP_TM2000) || defined(CONFIG_TOUCH_REG_MAP_TM2372)
-extern void trigger_baseline_state_machine(int plug_in);
-#endif
 static void msm_otg_sm_work(struct work_struct *w)
 {
 	struct msm_otg *motg = container_of(w, struct msm_otg, sm_work);
@@ -2351,10 +2348,6 @@ static void msm_otg_sm_work(struct work_struct *w)
 					tabla_codec_hph_pa_ctl(TABLA_EVENT_CHARGER_CONNECT);
 #endif /*CONFIG_LGE_AUX_NOISE*/
 
-#if defined(CONFIG_TOUCH_REG_MAP_TM2000) || defined(CONFIG_TOUCH_REG_MAP_TM2372)
-                    trigger_baseline_state_machine(1);
-#endif
-
 					/* Enable VDP_SRC */
 					ulpi_write(otg->phy, 0x2, 0x85);
 					/* fall through */
@@ -2397,9 +2390,6 @@ static void msm_otg_sm_work(struct work_struct *w)
 #endif
 					msm_otg_notify_charger(motg,
 							IDEV_CHG_MIN);
-#if defined(CONFIG_TOUCH_REG_MAP_TM2000) || defined(CONFIG_TOUCH_REG_MAP_TM2372)
-					trigger_baseline_state_machine(1);
-#endif
 					if(!slimport_is_connected()) {
 						msm_otg_start_peripheral(otg, 1);
 						otg->phy->state =
@@ -2439,9 +2429,6 @@ static void msm_otg_sm_work(struct work_struct *w)
 			 */
 			tabla_codec_hph_pa_ctl(TABLA_EVENT_CHARGER_DISCONNECT);
 #endif /*CONFIG_LGE_AUX_NOISE*/
-#if defined(CONFIG_TOUCH_REG_MAP_TM2000) || defined(CONFIG_TOUCH_REG_MAP_TM2372)
-            trigger_baseline_state_machine(0);
-#endif
 			msm_otg_notify_charger(motg, 0);
 			msm_otg_reset(otg->phy);
 			pm_runtime_put_noidle(otg->phy->dev);
